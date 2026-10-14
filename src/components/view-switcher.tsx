@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { MmiIcon } from '@/components/mmi-icon';
 import { Spacing } from '@/constants/theme';
 import { APP_VIEWS, AppView, VIEW_ACCENT_COLORS } from '@/contexts/auth-context';
 
@@ -10,6 +12,16 @@ const palette = {
   textSecondary: '#8A8580',
   card: '#FFFFFF',
   border: '#E7DDCC',
+};
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+// Each view's icon tells you what it monitors: MediaWatch = web articles,
+// SharedView = social posts, AdWatch = ads.
+const VIEW_ICON: Record<AppView, IoniconName> = {
+  MediaWatch: 'newspaper',
+  SharedView: 'chatbubbles',
+  AdWatch: 'megaphone',
 };
 
 // Starting/ending Y offset for the sheet's slide animation — well past the
@@ -23,9 +35,10 @@ export function ViewSwitcher({
 }: {
   value: AppView;
   onChange: (view: AppView) => void;
-  variant?: 'header' | 'row';
+  variant?: 'header' | 'row' | 'logo';
 }) {
   const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
 
@@ -66,7 +79,16 @@ export function ViewSwitcher({
 
   return (
     <>
-      {variant === 'row' ? (
+      {variant === 'logo' ? (
+        <Pressable
+          onPress={openMenu}
+          accessibilityRole="button"
+          accessibilityLabel={`Current view: ${value}. Tap to switch`}
+          hitSlop={8}
+          style={({ pressed }) => pressed && styles.pressed}>
+          <MmiIcon size={26} color={VIEW_ACCENT_COLORS[value]} />
+        </Pressable>
+      ) : variant === 'row' ? (
         <Pressable
           onPress={openMenu}
           accessibilityRole="button"
@@ -114,7 +136,12 @@ export function ViewSwitcher({
                   key={view}
                   onPress={() => {
                     closeMenu();
-                    onChange(view);
+                    if (view !== value) {
+                      onChange(view);
+                      // Reset to Home so you never land on a page the newly
+                      // selected workspace's navigation doesn't expose.
+                      router.replace('/');
+                    }
                   }}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
@@ -124,7 +151,9 @@ export function ViewSwitcher({
                     pressed && styles.pressed,
                   ]}>
                   <View style={styles.sheetRowLabel}>
-                    <View style={[styles.viewSwatch, { backgroundColor: viewColor }]} />
+                    <View style={[styles.viewBadge, { backgroundColor: viewColor }]}>
+                      <Ionicons name={VIEW_ICON[view]} size={17} color="#FFFFFF" />
+                    </View>
                     <Text style={[styles.sheetRowText, selected && { color: viewColor, fontWeight: '700' }]}>
                       {view}
                     </Text>
@@ -211,10 +240,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  viewSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  viewBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sheetRowText: {
     fontSize: 15,

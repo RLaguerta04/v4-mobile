@@ -5,6 +5,20 @@ export interface SavedArticleFolder {
   name: string;
 }
 
+// Stable per-folder accent, cycled by creation order (index in `folders`).
+// Shared by the Saved Articles screen and the Save-to-folder picker so a
+// folder wears the same color in both places.
+export const FOLDER_COLORS = [
+  '#6B4DE8',
+  '#16A34A',
+  '#E94F37',
+  '#2563EB',
+  '#D97706',
+  '#0891B2',
+  '#DB2777',
+  '#7C3AED',
+];
+
 interface SavedArticlesContextValue {
   folders: SavedArticleFolder[];
   // url -> folder id, or null for saved-but-unfiled. Absence = not saved.
@@ -12,7 +26,9 @@ interface SavedArticlesContextValue {
   isArticleSaved: (url: string) => boolean;
   toggleSaveArticle: (url: string) => void;
   moveToFolder: (url: string, folderId: string | null) => void;
-  createFolder: (name: string) => void;
+  // Returns the created folder (so a caller can immediately file into it), or
+  // null when the name is blank.
+  createFolder: (name: string) => SavedArticleFolder | null;
 }
 
 const SavedArticlesContext = createContext<SavedArticlesContextValue | null>(null);
@@ -38,10 +54,15 @@ export function SavedArticlesProvider({ children }: { children: React.ReactNode 
     setFolderOfUrl((prev) => ({ ...prev, [url]: folderId }));
   }
 
-  function createFolder(name: string) {
+  function createFolder(name: string): SavedArticleFolder | null {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    setFolders((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: trimmed }]);
+    if (!trimmed) return null;
+    const folder: SavedArticleFolder = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: trimmed,
+    };
+    setFolders((prev) => [...prev, folder]);
+    return folder;
   }
 
   const value = useMemo(

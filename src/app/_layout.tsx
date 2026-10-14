@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
@@ -14,8 +15,11 @@ import { LoginScreen } from '@/components/login-screen';
 import { ViewSelectionScreen } from '@/components/view-selection-screen';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { BookmarksProvider } from '@/contexts/bookmarks-context';
+import { CategoryFilterProvider } from '@/contexts/category-filter-context';
 import { SavedArticlesProvider } from '@/contexts/saved-articles-context';
+import { SavedFiltersProvider } from '@/contexts/saved-filters-context';
 import { TabBarVisibilityProvider } from '@/contexts/tab-bar-visibility-context';
+import { TrackerProvider } from '@/contexts/tracker-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,11 +32,17 @@ function RootContent() {
 
   return (
     <TabBarVisibilityProvider>
-      <BookmarksProvider>
-        <SavedArticlesProvider>
-          <AppTabs />
-        </SavedArticlesProvider>
-      </BookmarksProvider>
+      <CategoryFilterProvider>
+        <BookmarksProvider>
+          <SavedArticlesProvider>
+            <TrackerProvider>
+              <SavedFiltersProvider>
+                <AppTabs />
+              </SavedFiltersProvider>
+            </TrackerProvider>
+          </SavedArticlesProvider>
+        </BookmarksProvider>
+      </CategoryFilterProvider>
     </TabBarVisibilityProvider>
   );
 }
@@ -54,11 +64,13 @@ export default function TabLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AuthProvider>
-        <RootContent />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <AuthProvider>
+          <RootContent />
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

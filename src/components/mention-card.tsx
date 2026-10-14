@@ -14,31 +14,34 @@ import {
   Text,
   View,
 } from 'react-native';
+import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthorAvatar } from '@/components/author-avatar';
-import { MediaMeterColors, Spacing } from '@/constants/theme';
+import {
+  BRAND_OPTIONS,
+  DetailCard,
+  EntityPills,
+  KeywordPills,
+  SENTIMENT_DOT,
+  StatTiles,
+  TONE_OPTIONS,
+  TriSelector,
+  cardPalette,
+  formatCount,
+} from '@/components/detail-primitives';
+import { useDismissGesture } from '@/components/pull-to-dismiss';
+import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
+import { SheetHeader } from '@/components/sheet-header';
+import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
 import { SocialMention } from '@/data/types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// Shared with the Mentions (Home), Bookmark, and Search screens so every
-// mention card looks identical wherever it's rendered.
-export const cardPalette = {
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-  track: '#EDE6D8',
-};
-
-// Real Media Meter v4 sentiment tokens (design-system.html), not guessed values.
-export const SENTIMENT_DOT: Record<SocialMention['sentiment'], string> = {
-  positive: MediaMeterColors.positive,
-  neutral: MediaMeterColors.neutralSentiment,
-  negative: MediaMeterColors.negative,
-};
+// Re-exported for existing importers that pulled these from mention-card.
+export { cardPalette, SENTIMENT_DOT, formatCount };
 
 // Starting/ending Y offset for the options sheet's slide animation — well
 // past the sheet's own height, so it's always fully off-screen at rest.
@@ -59,7 +62,7 @@ export function getEngagementItems(
   switch (mention.platform) {
     case 'facebook':
       return [
-        { icon: 'thumbs-up-outline', label: 'Likes', count: mention.engagement.likes },
+        { icon: 'thumbs-up-outline', label: 'Reactions', count: mention.engagement.likes },
         { icon: 'chatbubble-outline', label: 'Comments', count: mention.engagement.comments },
         { icon: 'arrow-redo-outline', label: 'Shares', count: mention.engagement.shares },
       ];
@@ -101,26 +104,25 @@ export function getEngagementItems(
   }
 }
 
-export function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-  return String(n);
-}
-
 export function MentionCard({
   mention,
   saved,
   onToggleSave,
+  matchScore,
 }: {
   mention: SocialMention;
   saved: boolean;
   onToggleSave: () => void;
+  // Web-client parity: the coverage table's MATCH column. Only rendered when
+  // provided — the Home feed omits it.
+  matchScore?: number;
 }) {
   const { accentColor } = useAuth();
-  const { isArticleSaved, toggleSaveArticle } = useSavedArticles();
+  const { isArticleSaved } = useSavedArticles();
   const articleSaved = isArticleSaved(mention.url);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const [saveSheetOpen, setSaveSheetOpen] = useState(false);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
   const engagementItems = getEngagementItems(mention);
@@ -167,8 +169,16 @@ export function MentionCard({
   }, [modalVisible]);
 
   return (
-    <View style={styles.card}>
-      <View style={styles.sourceRow}>
+    // The ··· menu is a sibling overlay — not nested inside the tappable card
+    // Pressable — so the two don't form a <button>-in-<button> on web and a tap
+    // on ··· never bubbles up to open the details view.
+    <View style={styles.cardContainer}>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        onPress={() => setDetailsVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`Open details for the mention from ${mention.handle}`}>
+        <View style={[styles.sourceRow, styles.cardSourceRow]}>
         <AuthorAvatar handle={mention.handle} platform={mention.platform} size={36} />
         <View style={styles.identityColumn}>
           <View style={styles.nameLine}>
@@ -181,17 +191,6 @@ export function MentionCard({
             {mention.ago} · <Ionicons name="time-outline" size={11} color={cardPalette.textSecondary} /> As
             of {formatCapturedAsOf(mention.capturedAt)} · UTC
           </Text>
-        </View>
-
-        <View style={styles.headerActions}>
-          <Pressable
-            hitSlop={8}
-            onPress={openMenu}
-            accessibilityRole="button"
-            accessibilityLabel="More options"
-            style={({ pressed }) => pressed && styles.pressed}>
-            <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
-          </Pressable>
         </View>
       </View>
 
@@ -218,7 +217,33 @@ export function MentionCard({
             </View>
           ))}
         </View>
-      </View>
+        {matchScore !== undefined && (
+          <View style={styles.matchBlock}>
+            <Text style={[styles.matchText, matchScore < 85 && styles.matchTextMid]}>
+              {matchScore}% match
+            </Text>
+            <View style={styles.matchTrack}>
+              <View
+                style={[
+                  styles.matchFill,
+                  matchScore < 85 && styles.matchFillMid,
+                  { width: `${matchScore}%` },
+                ]}
+              />
+            </View>
+          </View>
+        )}
+        </View>
+      </Pressable>
+
+      <Pressable
+        hitSlop={8}
+        onPress={openMenu}
+        accessibilityRole="button"
+        accessibilityLabel="More options"
+        style={({ pressed }) => [styles.cardMenuButton, pressed && styles.pressed]}>
+        <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+      </Pressable>
 
       <Modal
         visible={modalVisible}
@@ -258,17 +283,17 @@ export function MentionCard({
               style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
               onPress={() => {
                 closeMenu();
-                toggleSaveArticle(mention.url);
+                setSaveSheetOpen(true);
               }}
               accessibilityRole="button"
-              accessibilityLabel={articleSaved ? 'Remove from Saved Articles' : 'Add to Saved Articles'}>
+              accessibilityLabel={articleSaved ? 'Move to folder' : 'Add to Saved Articles'}>
               <Ionicons
                 name={articleSaved ? 'file-tray-full' : 'file-tray-full-outline'}
                 size={20}
                 color={articleSaved ? accentColor : cardPalette.text}
               />
               <Text style={styles.sheetRowText}>
-                {articleSaved ? 'Remove from Saved Articles' : 'Add to Saved Articles'}
+                {articleSaved ? 'Move to folder' : 'Add to Saved Articles'}
               </Text>
             </Pressable>
 
@@ -332,9 +357,26 @@ export function MentionCard({
         engagementItems={engagementItems}
         onClose={() => setDetailsVisible(false)}
       />
+
+      <SaveToFolderSheet
+        visible={saveSheetOpen}
+        url={mention.url}
+        onClose={() => setSaveSheetOpen(false)}
+      />
     </View>
   );
 }
+
+// Source label per platform for the "Source" meta row — the social-context
+// stand-in for the web client's "Publisher" field.
+const PLATFORM_LABEL: Record<SocialMention['platform'], string> = {
+  facebook: 'Facebook',
+  twitter: 'X (Twitter)',
+  instagram: 'Instagram',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  reddit: 'Reddit',
+};
 
 function MentionDetailsModal({
   visible,
@@ -347,70 +389,406 @@ function MentionDetailsModal({
   engagementItems: { icon: IoniconName; label: string; count: number }[];
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const { accentColor } = useAuth();
+  const { isArticleSaved } = useSavedArticles();
+  const tracked = isArticleSaved(mention.url);
+
+  // Actions bottom sheet (opened by the ··· button on the post card) — the
+  // labeled icon+name menu, same slide-up/backdrop-fade pattern as the feed
+  // card's options sheet. Rendered as an in-tree overlay (not a nested Modal).
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Save-to-folder picker, also in-tree (this detail screen is already a Modal).
+  const [savePickerOpen, setSavePickerOpen] = useState(false);
+  const [menuBackdrop] = useState(() => new Animated.Value(0));
+  const [menuTranslateY] = useState(() => new Animated.Value(SHEET_OFFSCREEN_Y));
+
+  function closeActionMenu() {
+    Animated.parallel([
+      Animated.timing(menuBackdrop, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(menuTranslateY, {
+        toValue: SHEET_OFFSCREEN_Y,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => setMenuOpen(false));
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    menuBackdrop.setValue(0);
+    menuTranslateY.setValue(SHEET_OFFSCREEN_Y);
+    Animated.parallel([
+      Animated.timing(menuBackdrop, { toValue: 1, duration: 150, useNativeDriver: true }),
+      Animated.timing(menuTranslateY, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [menuOpen, menuBackdrop, menuTranslateY]);
+
+  function emailPost() {
+    const subject = encodeURIComponent(`Mention from ${mention.handle}`);
+    const body = encodeURIComponent(`${mention.post}\n\n${mention.url}`);
+    Linking.openURL(`mailto:?subject=${subject}&body=${body}`);
+  }
+  const dismiss = useDismissGesture(onClose);
+
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.detailsScreen}>
-        <View style={styles.detailsHeader}>
-          <Text style={styles.detailsTitle}>Mention Details</Text>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            style={styles.detailsCloseButton}>
-            <Ionicons name="close" size={18} color={cardPalette.text} />
-          </Pressable>
-        </View>
+      <GestureHandlerRootView style={styles.detailsScreen}>
+        <Animated.View style={[styles.fill, dismiss.style]}>
+          <GestureDetector gesture={dismiss.gesture}>
+            <View>
+              <SheetHeader onClose={onClose} title="Mention Details" />
+            </View>
+          </GestureDetector>
 
-        <ScrollView contentContainerStyle={styles.detailsBody} showsVerticalScrollIndicator={false}>
-          <View style={styles.sourceRow}>
-            <AuthorAvatar handle={mention.handle} platform={mention.platform} size={40} />
-            <View style={styles.identityColumn}>
-              <View style={styles.nameLine}>
-                <Text style={styles.handle}>{mention.handle}</Text>
-                <View style={[styles.sentimentDot, { backgroundColor: SENTIMENT_DOT[mention.sentiment] }]} />
+          <ScrollView
+            contentContainerStyle={styles.detailsBody}
+            showsVerticalScrollIndicator={false}
+            onScroll={dismiss.onScroll}
+            scrollEventThrottle={16}>
+          <DetailCard>
+            <View style={styles.sourceRow}>
+              <AuthorAvatar handle={mention.handle} platform={mention.platform} size={40} />
+              <View style={styles.identityColumn}>
+                <View style={styles.nameLine}>
+                  <Text style={styles.handle}>{mention.handle}</Text>
+                  <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                </View>
+                <Text style={styles.ago}>
+                  {PLATFORM_LABEL[mention.platform]} · {mention.ago}
+                </Text>
               </View>
-              <Text style={styles.ago}>{mention.ago}</Text>
+
+              <Pressable
+                onPress={() => setMenuOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="More actions"
+                hitSlop={8}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+              </Pressable>
             </View>
-          </View>
 
-          <Text style={styles.detailsPostText}>{mention.post}</Text>
+            <Text style={styles.detailsPostText}>{mention.post}</Text>
 
-          {mention.thumb && (
-            <View style={styles.detailsThumb}>
-              <Image source={mention.thumb} style={styles.thumbImage} resizeMode="cover" />
-            </View>
-          )}
+            {mention.thumb && (
+              <View style={styles.detailsThumb}>
+                <Image source={mention.thumb} style={styles.thumbImage} resizeMode="cover" />
+                <Text style={styles.thumbCredit}>{PLATFORM_LABEL[mention.platform].toUpperCase()}</Text>
+              </View>
+            )}
 
-          <View style={styles.detailsSection}>
-            <Text style={styles.detailsSectionLabel}>Engagement</Text>
-            <View style={styles.detailsStatGrid}>
+            <View style={styles.postStatsRow}>
               {engagementItems.map((item) => (
-                <View key={item.label} style={styles.detailsStat}>
-                  <Ionicons name={item.icon} size={18} color={cardPalette.textSecondary} />
-                  <Text style={styles.detailsStatCount}>{item.count.toLocaleString()}</Text>
-                  <Text style={styles.detailsStatLabel}>{item.label}</Text>
+                <View key={item.label} style={styles.postStat}>
+                  <Ionicons name={item.icon} size={16} color={cardPalette.textSecondary} />
+                  <Text style={styles.postStatCount}>{formatCount(item.count)}</Text>
+                  <Text style={styles.postStatLabel}>{item.label}</Text>
                 </View>
               ))}
             </View>
-          </View>
 
-          <View style={styles.detailsSection}>
-            <Text style={styles.detailsSectionLabel}>Capture Info</Text>
+            <CommentsList seed={mention.url} />
+          </DetailCard>
+
+          {(mention.estReach !== undefined || mention.engScore !== undefined) && (
+            <DetailCard>
+              <StatTiles
+                left={{ label: 'Estimated Reach', value: mention.estReach ?? '—' }}
+                right={{ label: 'Engagement Score', value: mention.engScore ?? '—' }}
+              />
+              <View style={styles.tilesCaption}>
+                <Ionicons name="time-outline" size={13} color={cardPalette.textSecondary} />
+                <Text style={styles.detailsMeta}>
+                  As of {formatCapturedAsOf(mention.capturedAt)} · UTC
+                </Text>
+              </View>
+            </DetailCard>
+          )}
+
+          <DetailCard>
+            <MetaRows mention={mention} />
+          </DetailCard>
+
+          {mention.author && (
+            <DetailCard label="Influencer">
+              <View style={styles.authorRow}>
+                <AuthorAvatar handle={mention.handle} platform={mention.platform} size={32} />
+                <View style={styles.influencerIdentity}>
+                  <Text style={styles.authorName}>{mention.author}</Text>
+                  <Text style={styles.influencerPlatform}>{PLATFORM_LABEL[mention.platform]}</Text>
+                </View>
+              </View>
+              <View style={styles.authorStats}>
+                <View style={styles.authorStat}>
+                  <Text style={styles.detailsStatLabel}>Influencer Score</Text>
+                  <Text style={styles.authorStatVal}>{mention.influencerScore ?? '—'}</Text>
+                </View>
+                <View style={styles.authorStat}>
+                  <Text style={styles.detailsStatLabel}>Followers</Text>
+                  <Text style={styles.authorStatVal}>{mention.followers ?? '—'}</Text>
+                </View>
+              </View>
+            </DetailCard>
+          )}
+
+          <DetailCard label="Brand Sentiment">
+            <TriSelector options={BRAND_OPTIONS} initial={mention.sentiment} />
+          </DetailCard>
+
+          {mention.tone && (
+            <DetailCard label="Post Tone">
+              <TriSelector options={TONE_OPTIONS} initial={mention.tone} />
+            </DetailCard>
+          )}
+
+          {mention.keywords && mention.keywords.length > 0 && (
+            <DetailCard label="Keywords">
+              <KeywordPills keywords={mention.keywords} />
+            </DetailCard>
+          )}
+
+          {mention.entities.length > 0 && (
+            <DetailCard label="Entities">
+              <EntityPills entities={mention.entities} />
+            </DetailCard>
+          )}
+
+          <DetailCard label="Capture Info">
             <Text style={styles.detailsMeta}>Posted {mention.date}</Text>
             <Text style={styles.detailsMeta}>Metrics as of {formatCapturedAsOf(mention.capturedAt)} UTC</Text>
             <Text style={styles.detailsMeta} numberOfLines={1}>
               {mention.url}
             </Text>
+          </DetailCard>
+          </ScrollView>
+        </Animated.View>
+
+        {menuOpen && (
+          <View style={styles.actionSheetOverlay}>
+            <Animated.View style={[styles.sheetBackdrop, { opacity: menuBackdrop }]}>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={closeActionMenu}
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+              />
+            </Animated.View>
+
+            <Animated.View style={[styles.sheet, { transform: [{ translateY: menuTranslateY }] }]}>
+              <View style={styles.sheetHandle} />
+
+              <Pressable
+                style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
+                onPress={() => {
+                  closeActionMenu();
+                  emailPost();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Send via email">
+                <Ionicons name="mail-outline" size={20} color={cardPalette.text} />
+                <Text style={styles.sheetRowText}>Send via Email</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
+                onPress={() => {
+                  closeActionMenu();
+                  Alert.alert('Export started', 'This post would be exported as a PDF to your device.');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Export as PDF">
+                <Ionicons name="download-outline" size={20} color={cardPalette.text} />
+                <Text style={styles.sheetRowText}>Export as PDF</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
+                onPress={() => {
+                  closeActionMenu();
+                  Linking.openURL(mention.url);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="View post">
+                <Ionicons name="open-outline" size={20} color={cardPalette.text} />
+                <Text style={styles.sheetRowText}>View Post</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
+                onPress={() => {
+                  closeActionMenu();
+                  setSavePickerOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: tracked }}
+                accessibilityLabel={tracked ? 'Move to folder' : 'Add to Saved Articles'}>
+                <Ionicons
+                  name={tracked ? 'file-tray-full' : 'file-tray-full-outline'}
+                  size={20}
+                  color={tracked ? accentColor : cardPalette.text}
+                />
+                <Text style={[styles.sheetRowText, tracked && { color: accentColor }]}>
+                  {tracked ? 'Move to folder' : 'Add to Saved Articles'}
+                </Text>
+              </Pressable>
+            </Animated.View>
           </View>
-        </ScrollView>
-      </View>
+        )}
+
+        <SaveToFolderSheet
+          host="inline"
+          visible={savePickerOpen}
+          url={mention.url}
+          onClose={() => setSavePickerOpen(false)}
+        />
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
+// ── Article-detail primitives (single-column, stacked) ──
+
+// Key/value meta rows (Platform, Type, Influencer, Est. Reach, Posted).
+function MetaRows({ mention }: { mention: SocialMention }) {
+  const rows: { k: string; v: string; sub?: string }[] = [];
+  rows.push({ k: 'Platform', v: PLATFORM_LABEL[mention.platform] });
+  if (mention.type) rows.push({ k: 'Type', v: mention.type });
+  rows.push({ k: 'Influencer', v: mention.author ?? mention.handle });
+  if (mention.estReach) rows.push({ k: 'Est. Reach', v: mention.estReach });
+  rows.push({ k: 'Posted', v: mention.date, sub: mention.ago });
+
+  return (
+    <View style={styles.metaList}>
+      {rows.map((r) => (
+        <View key={r.k} style={styles.detailMetaRow}>
+          <Text style={styles.metaKey}>{r.k}</Text>
+          <View style={styles.metaValueWrap}>
+            <Text style={styles.metaValue}>{r.v}</Text>
+            {r.sub && <Text style={styles.metaValueSub}>{r.sub}</Text>}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Deterministic social comments — a shared EV/car-themed PH pool, picked per
+// post (seeded from its URL) so the thread stays stable across renders without
+// authoring comments on every record. Mirrors the web client's _socComments.
+const SOCIAL_COMMENTS: { author: string; text: string }[] = [
+  { author: 'Maria Santos', text: 'Finally test drove one — super smooth 🙌' },
+  { author: 'Juan dela Cruz', text: 'Available na ba sa province?' },
+  { author: 'Anna Reyes', text: "How's the charging network sa area niyo?" },
+  { author: 'Paolo Mendoza', text: 'Switched to EV last month, no regrets.' },
+  { author: 'Grace Lim', text: 'Ang ganda ng interior, honestly 🔥' },
+  { author: 'Marco Villanueva', text: 'Solid value for the price.' },
+  { author: 'Bea Cruz', text: 'Battery life after 1 year, kumusta?' },
+  { author: 'Nathan Ong', text: 'Good value for the price, honestly.' },
+  { author: 'Isabel Garcia', text: 'Sana all may ganito 😅' },
+  { author: 'Kevin Tan', text: 'Any promo for first-time buyers?' },
+  { author: 'Liza Ramos', text: 'Nice! Sharing this with the fam.' },
+  { author: 'Diego Flores', text: 'Service center experience needs work though.' },
+  { author: 'Camille Aquino', text: 'Waiting for this model in our area 🙏' },
+  { author: 'Rafael Bautista', text: 'Test unit felt premium, ngl.' },
+  { author: 'Trina Gomez', text: 'How much yung monthly if financed?' },
+  { author: 'Miguel Torres', text: 'Range is legit for city driving.' },
+];
+
+const COMMENT_COLORS = ['#1877F2', '#16A34A', '#E4405F', '#F97316', '#8B5CF6', '#0891B2', '#DB2777', '#D97706'];
+const COMMENT_TIMES = ['1h', '2h', '3h', '5h', '7h', '9h', '12h', '15h', '18h', '1d', '2d'];
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+type SocialComment = { author: string; text: string; time: string; likes: number };
+
+function buildComments(seed: string): SocialComment[] {
+  const h = hashString(seed);
+  const n = 5 + (h % 3); // 5–7 comments
+  const out: SocialComment[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = SOCIAL_COMMENTS[(h + i * 7) % SOCIAL_COMMENTS.length];
+    const hh = (h + i * 2654435761) >>> 0;
+    out.push({ author: c.author, text: c.text, time: COMMENT_TIMES[hh % COMMENT_TIMES.length], likes: (hh >>> 6) % 38 });
+  }
+  return out;
+}
+
+// Comments thread for the post card: first 3 shown, rest behind "View all N".
+function CommentsList({ seed }: { seed: string }) {
+  const comments = buildComments(seed);
+  const [expanded, setExpanded] = useState(false);
+  const limit = 3;
+  const shown = expanded ? comments : comments.slice(0, limit);
+  const remaining = comments.length - limit;
+
+  return (
+    <View style={styles.commentsSection}>
+      {shown.map((c, i) => (
+        <View key={i} style={styles.commentRow}>
+          <View style={[styles.commentAvatar, { backgroundColor: COMMENT_COLORS[hashString(c.author) % COMMENT_COLORS.length] }]}>
+            <Text style={styles.commentAvatarText}>{c.author.charAt(0)}</Text>
+          </View>
+          <View style={styles.commentBody}>
+            <Text style={styles.commentMeta}>
+              <Text style={styles.commentAuthor}>{c.author}</Text>
+              <Text style={styles.commentTime}> · {c.time}</Text>
+            </Text>
+            <Text style={styles.commentText}>{c.text}</Text>
+            <View style={styles.commentLike}>
+              <Ionicons name="heart-outline" size={12} color={cardPalette.textSecondary} />
+              <Text style={styles.commentLikeCount}>{c.likes}</Text>
+            </View>
+          </View>
+        </View>
+      ))}
+      {!expanded && remaining > 0 && (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => pressed && styles.pressed}>
+          <Text style={styles.commentsMore}>View all {comments.length} comments</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  cardContainer: {
+    position: 'relative',
+  },
   card: {
     gap: Spacing.two,
+  },
+  cardPressed: {
+    opacity: 0.7,
+  },
+  // Reserve space at the source row's right edge so the handle/timestamp never
+  // runs under the absolutely-positioned ··· overlay button.
+  cardSourceRow: {
+    paddingRight: 32,
+  },
+  // The ··· menu, overlaid at the card's top-right as a sibling of the tappable
+  // Pressable (see MentionCard's render) — vertically centered on the 36px avatar.
+  cardMenuButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thumb: {
     width: '100%',
@@ -460,14 +838,42 @@ const styles = StyleSheet.create({
   },
   postText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '500',
     lineHeight: 23,
     color: cardPalette.text,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: Spacing.one,
+  },
+  matchBlock: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  // Green ≥85%, amber below — the web coverage table's MATCH thresholds.
+  matchText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  matchTextMid: {
+    color: '#D97706',
+  },
+  matchTrack: {
+    width: 64,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: cardPalette.track,
+  },
+  matchFill: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#16A34A',
+  },
+  matchFillMid: {
+    backgroundColor: '#D97706',
   },
   engagementRow: {
     flexDirection: 'row',
@@ -528,31 +934,35 @@ const styles = StyleSheet.create({
   },
   detailsScreen: {
     flex: 1,
-    backgroundColor: cardPalette.card,
+    backgroundColor: '#FAF8F4',
+  },
+  fill: {
+    flex: 1,
   },
   detailsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
+    backgroundColor: cardPalette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: cardPalette.border,
   },
   detailsTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: cardPalette.text,
   },
-  detailsCloseButton: {
+  detailsBackButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: cardPalette.track,
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailsBody: {
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
     paddingBottom: Spacing.six,
     gap: Spacing.three,
   },
@@ -562,12 +972,116 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: cardPalette.text,
   },
+
+  // Post-card actions bottom sheet (opened by ···) — overlays the detail modal.
+  actionSheetOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+  },
+
   detailsThumb: {
     width: '100%',
     aspectRatio: 16 / 9,
     borderRadius: Spacing.three,
     backgroundColor: cardPalette.track,
     overflow: 'hidden',
+  },
+  // Platform credit overlaid on the post image (e.g. "FACEBOOK"), bottom-right.
+  thumbCredit: {
+    position: 'absolute',
+    right: Spacing.two,
+    bottom: Spacing.two,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  // Post engagement stats row (Reactions · Comments · Shares) inside the card.
+  postStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.four,
+    paddingTop: Spacing.two,
+  },
+  postStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  postStatCount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: cardPalette.text,
+  },
+  postStatLabel: {
+    fontSize: 13,
+    color: cardPalette.textSecondary,
+  },
+
+  // Comments thread
+  commentsSection: {
+    gap: Spacing.three,
+    paddingTop: Spacing.three,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  commentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  commentBody: {
+    flex: 1,
+    gap: 2,
+  },
+  commentMeta: {
+    fontSize: 13,
+  },
+  commentAuthor: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: cardPalette.text,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: cardPalette.textSecondary,
+  },
+  commentText: {
+    fontSize: 14,
+    lineHeight: 19,
+    color: cardPalette.text,
+  },
+  commentLike: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  commentLikeCount: {
+    fontSize: 12,
+    color: cardPalette.textSecondary,
+  },
+  commentsMore: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: cardPalette.textSecondary,
   },
   detailsSection: {
     gap: Spacing.one,
@@ -604,4 +1118,78 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: cardPalette.textSecondary,
   },
+
+  // ── Article-detail cards ──
+  tilesCaption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.two,
+  },
+
+  // Meta rows
+  metaList: {
+    gap: Spacing.two,
+  },
+  detailMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  metaKey: {
+    fontSize: 13,
+    color: cardPalette.textSecondary,
+    flexShrink: 0,
+  },
+  metaValueWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: cardPalette.text,
+    textAlign: 'right',
+  },
+  metaValueSub: {
+    fontSize: 11,
+    color: cardPalette.textSecondary,
+    marginTop: 1,
+  },
+
+  // Influencer card
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  influencerIdentity: {
+    flexShrink: 1,
+    gap: 1,
+  },
+  authorName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: cardPalette.text,
+    flexShrink: 1,
+  },
+  influencerPlatform: {
+    fontSize: 12,
+    color: cardPalette.textSecondary,
+  },
+  authorStats: {
+    flexDirection: 'row',
+    gap: Spacing.six,
+    marginTop: Spacing.one,
+  },
+  authorStat: {
+    gap: 2,
+  },
+  authorStatVal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: cardPalette.text,
+  },
+
 });

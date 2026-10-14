@@ -1,62 +1,77 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { Tabs, TabList, TabListProps, TabTrigger, TabTriggerSlotProps, TabSlot } from 'expo-router/ui';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BrowseCategoriesModal } from '@/components/browse-categories-modal';
-import { SavedArticlesModal } from '@/components/saved-articles-modal';
 import { useAuth } from '@/contexts/auth-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// The 4 primary destinations shown in the bar. "Profile" is registered as a
-// hidden tab further down (still a real route the header avatar can jump
-// to), and "More" is a plain button, not a route — see MoreButton below.
-const TABS: {
+type TabDef = {
   name: string;
   href: string;
   icon: IoniconName;
   iconActive: IoniconName;
   label: string;
-}[] = [
+};
+
+// The 4 primary destinations shown in the bar. The route names are identical
+// across views (index/bookmark/authors/search) — only the labels/icons differ —
+// because each of those screens branches its content on activeView. Hidden
+// routes (profile, brief, and the view-specific More destinations) are
+// registered further down.
+const SHARED_TABS: TabDef[] = [
   { name: 'index', href: '/', icon: 'home-outline', iconActive: 'home', label: 'Home' },
-  {
-    name: 'bookmark',
-    href: '/bookmark',
-    icon: 'megaphone-outline',
-    iconActive: 'megaphone',
-    label: 'Activity',
-  },
-  {
-    name: 'authors',
-    href: '/authors',
-    icon: 'grid-outline',
-    iconActive: 'grid',
-    label: 'Dashboard',
-  },
-  {
-    name: 'search',
-    href: '/search',
-    icon: 'search-outline',
-    iconActive: 'search',
-    label: 'Search',
-  },
+  { name: 'bookmark', href: '/bookmark', icon: 'megaphone-outline', iconActive: 'megaphone', label: 'Activity' },
+  { name: 'authors', href: '/authors', icon: 'grid-outline', iconActive: 'grid', label: 'Dashboard' },
+  { name: 'search', href: '/search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
+];
+
+const MEDIAWATCH_TABS: TabDef[] = [
+  { name: 'index', href: '/', icon: 'newspaper-outline', iconActive: 'newspaper', label: 'Mentions' },
+  { name: 'bookmark', href: '/bookmark', icon: 'megaphone-outline', iconActive: 'megaphone', label: 'Tracker' },
+  { name: 'authors', href: '/authors', icon: 'grid-outline', iconActive: 'grid', label: 'Dashboard' },
+  { name: 'search', href: '/search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
+];
+
+type MoreItem = { href: string; label: string; icon: IoniconName; iconActive: IoniconName };
+
+// SharedView / AdWatch keep the original More sheet; MediaWatch exposes its own
+// workspace pages (Publishers, Authors, Reports, AI News Writer) alongside the
+// shared Categories / Bookmarks / Saved Articles.
+const SHARED_MORE: MoreItem[] = [
+  { href: '/influencers', label: 'Influencers', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
+  { href: '/bookmarks', label: 'Bookmarks', icon: 'bookmark-outline', iconActive: 'bookmark' },
+  { href: '/saved', label: 'Saved Articles', icon: 'file-tray-full-outline', iconActive: 'file-tray-full' },
+  { href: '/categories', label: 'Categories', icon: 'apps-outline', iconActive: 'apps' },
+];
+
+const MEDIAWATCH_MORE: MoreItem[] = [
+  { href: '/mw-publishers', label: 'Publishers', icon: 'business-outline', iconActive: 'business' },
+  { href: '/mw-authors', label: 'Authors', icon: 'person-outline', iconActive: 'person' },
+  { href: '/categories', label: 'Categories', icon: 'apps-outline', iconActive: 'apps' },
+  { href: '/mw-reports', label: 'Reports', icon: 'document-text-outline', iconActive: 'document-text' },
+  { href: '/mw-ai-writer', label: 'AI News Writer', icon: 'sparkles-outline', iconActive: 'sparkles' },
+  { href: '/bookmarks', label: 'Bookmarks', icon: 'bookmark-outline', iconActive: 'bookmark' },
+  { href: '/saved', label: 'Saved Articles', icon: 'file-tray-full-outline', iconActive: 'file-tray-full' },
 ];
 
 export default function AppTabs() {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [savedArticlesOpen, setSavedArticlesOpen] = useState(false);
+  const { activeView } = useAuth();
+  const isMediaWatch = activeView === 'MediaWatch';
+  const tabs = isMediaWatch ? MEDIAWATCH_TABS : SHARED_TABS;
+  const moreItems = isMediaWatch ? MEDIAWATCH_MORE : SHARED_MORE;
 
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <BarContainer>
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href as never} asChild>
               <TabButton icon={tab.icon} iconActive={tab.iconActive} label={tab.label} />
             </TabTrigger>
@@ -65,18 +80,24 @@ export default function AppTabs() {
               elsewhere) can still navigate here, without showing a button
               for it in the visible bar. */}
           <TabTrigger name="profile" href="/profile" style={styles.hiddenTrigger} />
+          {/* Hidden like profile: navigated to from the Today's Brief card's
+              "View full brief", never shown as a bar button. */}
+          <TabTrigger name="brief" href="/brief" style={styles.hiddenTrigger} />
+          {/* Hidden routes reached from the More sheet (SharedView). */}
+          <TabTrigger name="influencers" href="/influencers" style={styles.hiddenTrigger} />
+          <TabTrigger name="bookmarks" href="/bookmarks" style={styles.hiddenTrigger} />
+          <TabTrigger name="saved" href="/saved" style={styles.hiddenTrigger} />
+          <TabTrigger name="categories" href="/categories" style={styles.hiddenTrigger} />
+          {/* Hidden routes reached from the More sheet (MediaWatch). */}
+          <TabTrigger name="mw-publishers" href={'/mw-publishers' as never} style={styles.hiddenTrigger} />
+          <TabTrigger name="mw-authors" href={'/mw-authors' as never} style={styles.hiddenTrigger} />
+          <TabTrigger name="mw-reports" href={'/mw-reports' as never} style={styles.hiddenTrigger} />
+          <TabTrigger name="mw-ai-writer" href={'/mw-ai-writer' as never} style={styles.hiddenTrigger} />
           <MoreButton onPress={() => setMoreOpen(true)} />
         </BarContainer>
       </TabList>
 
-      <MoreSheet
-        visible={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        onSelectCategories={() => setCategoriesOpen(true)}
-        onSelectSavedArticles={() => setSavedArticlesOpen(true)}
-      />
-      <BrowseCategoriesModal visible={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
-      <SavedArticlesModal visible={savedArticlesOpen} onClose={() => setSavedArticlesOpen(false)} />
+      <MoreSheet visible={moreOpen} items={moreItems} onClose={() => setMoreOpen(false)} />
     </Tabs>
   );
 }
@@ -151,16 +172,16 @@ const SHEET_OFFSCREEN_Y = 300;
 
 function MoreSheet({
   visible,
+  items,
   onClose,
-  onSelectCategories,
-  onSelectSavedArticles,
 }: {
   visible: boolean;
+  items: MoreItem[];
   onClose: () => void;
-  onSelectCategories: () => void;
-  onSelectSavedArticles: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { accentColor } = useAuth();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
   const [rendered, setRendered] = useState(visible);
@@ -211,50 +232,33 @@ function MoreSheet({
 
         <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
           <View style={styles.sheetHandle} />
-          <Pressable
-            style={({ pressed }) => [styles.sheetRow, pressed && styles.sheetRowPressed]}
-            onPress={() => {
-              onClose();
-              // Dashboard tab already shows this same screen — this is just
-              // a second, discoverable entry point to it from More.
-              router.push('/authors');
-            }}
-            accessibilityRole="button">
-            <Ionicons name="stats-chart-outline" size={20} color={Colors.text} />
-            <Text style={styles.sheetRowText}>Influencers</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sheetRow, pressed && styles.sheetRowPressed]}
-            onPress={() => {
-              onClose();
-              // Activity tab already shows this same screen — this is just
-              // a second, discoverable entry point to it from More.
-              router.push('/bookmark');
-            }}
-            accessibilityRole="button">
-            <Ionicons name="bookmark-outline" size={20} color={Colors.text} />
-            <Text style={styles.sheetRowText}>Bookmarks</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sheetRow, pressed && styles.sheetRowPressed]}
-            onPress={() => {
-              onClose();
-              onSelectSavedArticles();
-            }}
-            accessibilityRole="button">
-            <Ionicons name="file-tray-full-outline" size={20} color={Colors.text} />
-            <Text style={styles.sheetRowText}>Saved Articles</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sheetRow, pressed && styles.sheetRowPressed]}
-            onPress={() => {
-              onClose();
-              onSelectCategories();
-            }}
-            accessibilityRole="button">
-            <Ionicons name="apps-outline" size={20} color={Colors.text} />
-            <Text style={styles.sheetRowText}>Categories</Text>
-          </Pressable>
+          {items.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Pressable
+                key={item.href}
+                style={({ pressed }) => [
+                  styles.sheetRow,
+                  active && { backgroundColor: `${accentColor}14` },
+                  pressed && styles.sheetRowPressed,
+                ]}
+                onPress={() => {
+                  onClose();
+                  router.push(item.href as never);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}>
+                <Ionicons
+                  name={active ? item.iconActive : item.icon}
+                  size={20}
+                  color={active ? accentColor : Colors.text}
+                />
+                <Text style={[styles.sheetRowText, active && { color: accentColor, fontWeight: '700' }]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </Animated.View>
       </View>
     </Modal>
@@ -334,6 +338,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+    borderRadius: 12,
   },
   sheetRowPressed: {
     opacity: 0.6,

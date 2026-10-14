@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MediaMeterColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { cloneFilters, SavedFilter, useSavedFilters } from '@/contexts/saved-filters-context';
 import { socialMentions } from '@/data/sample-data';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
-import { SocialPlatform } from '@/data/types';
+import { SocialMention, SocialPlatform } from '@/data/types';
 
 export type SortOrder = 'newest' | 'oldest';
 
@@ -56,6 +57,30 @@ export const DEFAULT_FILTERS: MentionsFilters = {
   countryEnabled: true,
 };
 
+// Apply a MentionsFilters to a mention list — platform + topic/bucket + date
+// range, then sort by date. Shared so any screen (Home, Dashboard) filters the
+// same way. (Home layers its Category dropdown and author row on top of this.)
+export function filterMentions(
+  mentions: SocialMention[],
+  filters: MentionsFilters,
+): SocialMention[] {
+  const { start, end } = filters.dateRange;
+  const out = mentions.filter((m) => {
+    if (filters.topics.size > 0 && !m.entities.some((e) => filters.topics.has(e))) return false;
+    if (!filters.platforms.has(m.platform)) return false;
+    if (start || end) {
+      const d = new Date(m.date);
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+    }
+    return true;
+  });
+  return out.sort((a, b) => {
+    const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    return filters.sortOrder === 'newest' ? diff : -diff;
+  });
+}
+
 const palette = {
   sheetBg: '#FFFFFF',
   pillBg: '#F0F0F0',
@@ -89,6 +114,14 @@ function startOfDay(d: Date) {
   const copy = new Date(d);
   copy.setHours(0, 0, 0, 0);
   return copy;
+}
+
+// The default Home date window — the last 7 days up to today.
+export function last7Days(): { start: Date; end: Date } {
+  const end = startOfDay(new Date());
+  const start = startOfDay(new Date());
+  start.setDate(start.getDate() - 7);
+  return { start, end };
 }
 
 function formatDate(d: Date): string {
@@ -210,19 +243,25 @@ export function MentionsFiltersSheet({
   initialFilters,
   onApply,
   onClose,
+  hideMediaSource = false,
 }: {
   visible: boolean;
   initialFilters: MentionsFilters;
   onApply: (filters: MentionsFilters) => void;
   onClose: () => void;
+  // Hide the Media Source (platforms) section — e.g. the Dashboard keeps its
+  // own platform pill row, so platforms are controlled there instead.
+  hideMediaSource?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { accentColor } = useAuth();
+  const { saved, saveFilter, removeFilter } = useSavedFilters();
   const [pending, setPending] = useState<MentionsFilters>(initialFilters);
   const [viewDate, setViewDate] = useState(() => initialFilters.dateRange.start ?? latestMentionDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedKeywords, setExpandedKeywords] = useState<Set<string>>(new Set());
+  const [nameInput, setNameInput] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -231,6 +270,7 @@ export function MentionsFiltersSheet({
       setCalendarOpen(false);
       setExpandedCategories(new Set());
       setExpandedKeywords(new Set());
+      setNameInput(null);
     }
   }, [visible, initialFilters]);
 
@@ -247,22 +287,20 @@ export function MentionsFiltersSheet({
     setPending((prev) => ({ ...prev, platforms: new Set(ALL_PLATFORMS) }));
   }
 
+  // Single-select: at most one bucket (and therefore one category) is active
+  // at a time. Kept as a Set so the MentionsFilters shape and the feed's
+  // filtering logic stay unchanged — the Set just never holds more than one.
   function toggleTopic(topic: string) {
-    setPending((prev) => {
-      const next = new Set(prev.topics);
-      if (next.has(topic)) next.delete(topic);
-      else next.add(topic);
-      return { ...prev, topics: next };
-    });
+    setPending((prev) => ({
+      ...prev,
+      topics: prev.topics.has(topic) ? new Set<string>() : new Set([topic]),
+    }));
   }
 
+  // Accordion: expanding a category collapses the others, mirroring the
+  // one-category-at-a-time selection model.
   function toggleCategoryExpanded(category: string) {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
-      return next;
-    });
+    setExpandedCategories((prev) => (prev.has(category) ? new Set<string>() : new Set([category])));
   }
 
   function toggleBucketKeywords(bucket: string) {
@@ -306,6 +344,34 @@ export function MentionsFiltersSheet({
     setCalendarOpen(false);
     setExpandedCategories(new Set());
     setExpandedKeywords(new Set());
+    setNameInput(null);
+  }
+
+  function loadSaved(sf: SavedFilter) {
+    const f = cloneFilters(sf.filters);
+    setPending(f);
+    setViewDate(f.dateRange.start ?? latestMentionDate());
+    setCalendarOpen(false);
+    setExpandedCategories(new Set());
+    setExpandedKeywords(new Set());
+    setNameInput(null);
+  }
+
+  // A sensible default name from the current config — e.g. "Twitter / X · Product".
+  function suggestName(f: MentionsFilters): string {
+    const parts: string[] = [];
+    if (f.platforms.size === 1) parts.push(PLATFORM_LABEL[[...f.platforms][0]]);
+    else if (f.platforms.size < ALL_PLATFORMS.length) parts.push(`${f.platforms.size} sources`);
+    if (f.topics.size > 0) parts.push([...f.topics][0]);
+    if (f.dateRange.start) parts.push('Custom range');
+    if (f.sortOrder === 'oldest') parts.push('Oldest first');
+    return parts.length ? parts.join(' · ') : 'My filter';
+  }
+
+  function saveCurrent() {
+    const name = (nameInput ?? '').trim() || suggestName(pending);
+    saveFilter(name, pending);
+    setNameInput(null);
   }
 
   const allPlatformsSelected = pending.platforms.size === ALL_PLATFORMS.length;
@@ -342,6 +408,68 @@ export function MentionsFiltersSheet({
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
           showsVerticalScrollIndicator={false}>
+          <SectionLabel>Saved filters</SectionLabel>
+          <View style={styles.pillRow}>
+            {saved.map((sf) => (
+              <View key={sf.id} style={styles.savedChip}>
+                <Pressable
+                  onPress={() => loadSaved(sf)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Load filter ${sf.name}`}
+                  style={styles.savedChipMain}>
+                  <Ionicons name="star" size={12} color={accentColor} />
+                  <Text style={styles.savedChipText} numberOfLines={1}>
+                    {sf.name}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => removeFilter(sf.id)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete filter ${sf.name}`}
+                  style={styles.savedChipClose}>
+                  <Ionicons name="close" size={13} color={palette.sectionLabel} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              onPress={() => setNameInput(suggestName(pending))}
+              accessibilityRole="button"
+              accessibilityLabel="Save current filter"
+              style={styles.saveChip}>
+              <Ionicons name="add" size={15} color={palette.pillText} />
+              <Text style={styles.saveChipText}>Save current</Text>
+            </Pressable>
+          </View>
+          {nameInput !== null && (
+            <View style={styles.saveRow}>
+              <TextInput
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Name this filter"
+                placeholderTextColor={palette.sectionLabel}
+                style={styles.saveInput}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={saveCurrent}
+              />
+              <Pressable
+                onPress={saveCurrent}
+                accessibilityRole="button"
+                style={[styles.saveConfirm, { backgroundColor: accentColor }]}>
+                <Text style={styles.saveConfirmText}>Save</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setNameInput(null)}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                style={styles.saveCancel}>
+                <Ionicons name="close" size={16} color={palette.sectionLabel} />
+              </Pressable>
+            </View>
+          )}
+
           <SectionLabel>Sort by</SectionLabel>
           <View style={styles.pillRow}>
             <Pill
@@ -356,18 +484,22 @@ export function MentionsFiltersSheet({
             />
           </View>
 
-          <SectionLabel>Media Source</SectionLabel>
-          <View style={styles.pillRow}>
-            <Pill label="Select All" active={allPlatformsSelected} onPress={selectAllPlatforms} />
-            {ALL_PLATFORMS.map((platform) => (
-              <Pill
-                key={platform}
-                label={PLATFORM_LABEL[platform]}
-                active={pending.platforms.has(platform)}
-                onPress={() => togglePlatform(platform)}
-              />
-            ))}
-          </View>
+          {!hideMediaSource && (
+            <>
+              <SectionLabel>Media Source</SectionLabel>
+              <View style={styles.pillRow}>
+                <Pill label="Select All" active={allPlatformsSelected} onPress={selectAllPlatforms} />
+                {ALL_PLATFORMS.map((platform) => (
+                  <Pill
+                    key={platform}
+                    label={PLATFORM_LABEL[platform]}
+                    active={pending.platforms.has(platform)}
+                    onPress={() => togglePlatform(platform)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
 
           <SectionLabel>Categories & Buckets</SectionLabel>
           <View style={styles.treeList}>
@@ -382,7 +514,9 @@ export function MentionsFiltersSheet({
                     accessibilityState={{ expanded }}
                     style={styles.treeCategoryRow}>
                     <View style={styles.treeCategoryLabelColumn}>
-                      <Text style={styles.treeCategoryText}>{category}</Text>
+                      <Text style={[styles.treeCategoryText, selectedTopics.length > 0 && { color: accentColor }]}>
+                        {category}
+                      </Text>
                       {selectedTopics.length > 0 && (
                         <Text style={styles.treeCategorySubtitle} numberOfLines={1}>
                           {selectedTopics.join(', ')}
@@ -417,12 +551,18 @@ export function MentionsFiltersSheet({
                               </Pressable>
                               <Pressable
                                 onPress={() => toggleTopic(bucket.name)}
-                                accessibilityRole="checkbox"
+                                accessibilityRole="radio"
                                 accessibilityState={{ checked: active }}
                                 style={styles.treeBucketSelect}>
-                                <Text style={styles.treeBucketText}>{bucket.name}</Text>
+                                <Text
+                                  style={[
+                                    styles.treeBucketText,
+                                    active && { color: accentColor, fontWeight: '700' },
+                                  ]}>
+                                  {bucket.name}
+                                </Text>
                                 <Ionicons
-                                  name={active ? 'checkbox' : 'square-outline'}
+                                  name={active ? 'radio-button-on' : 'radio-button-off'}
                                   size={18}
                                   color={active ? accentColor : palette.sectionLabel}
                                 />
@@ -759,5 +899,79 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  savedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    backgroundColor: palette.pillBg,
+    paddingLeft: Spacing.two + 2,
+    paddingRight: 2,
+  },
+  savedChipMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: Spacing.one + 2,
+    maxWidth: 180,
+  },
+  savedChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.pillText,
+  },
+  savedChipClose: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderStyle: 'dashed',
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.one + 2,
+  },
+  saveChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.pillText,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  saveInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.two,
+    fontSize: 14,
+    color: palette.pillText,
+  },
+  saveConfirm: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 999,
+  },
+  saveConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  saveCancel: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

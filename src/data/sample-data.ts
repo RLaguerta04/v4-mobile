@@ -2,9 +2,17 @@
 // platforms a real media-monitoring feed would track. Unlike the sourced
 // AutoDeal article set this replaced, these posts are synthetic/prototype
 // data (no real social posts were scraped) — swap for a real API later.
-import { InfluencerStat, SocialMention } from './types';
+//
+// The post-detail fields (estReach, engScore, type, author, influencerScore,
+// followers, tone, keywords) back the expanded "Mention Details" view and
+// mirror the SharedView social model; authored prototype values, same caveat.
+import { dayShift, formatCapturedAt, formatMDY, humanizeAgo, parseMDY, recentCapturedAt, shiftDateString } from '@/utils/recent-dates';
+import { InfluencerStat, SocialMention, TrackerActivity, TrendingStory } from './types';
 
-export const socialMentions: SocialMention[] = [
+// Authored with July-2026 dates; re-dated to "now" at the bottom of this file
+// (see socialMentions / trackerActivities exports) so the feed always looks
+// current. Everything downstream reads the exported, re-dated arrays.
+const rawSocialMentions: SocialMention[] = [
   {
     platform: 'facebook',
     handle: 'BYD Philippines Owners Club',
@@ -17,6 +25,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Atto 3'],
     url: 'https://www.facebook.com/groups/bydphilippinesowners',
     engagement: { likes: 842, comments: 96, shares: 41 },
+    estReach: '84K',
+    engScore: 58,
+    type: 'Photo',
+    author: 'BYD PH Owners Club',
+    influencerScore: '54',
+    followers: '84K',
+    tone: 'positive',
+    keywords: [['atto 3', 2], ['test drive', 1], ['suspension', 1]],
   },
   {
     platform: 'twitter',
@@ -29,6 +45,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Seal 5 DM-i'],
     url: 'https://x.com/evwatchph/status/1234567890123456789',
     engagement: { likes: 312, replies: 58, reposts: 44, views: 28400 },
+    estReach: '28.4K',
+    engScore: 22,
+    type: 'Text',
+    author: 'EV Watch PH',
+    influencerScore: '30',
+    followers: '61K',
+    tone: 'mixed',
+    keywords: [['seal 5', 2], ['pricing', 1], ['camry', 1]],
   },
   {
     platform: 'instagram',
@@ -42,6 +66,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Dealership Expansion'],
     url: 'https://www.instagram.com/p/manilacarspotter-dasma',
     engagement: { likes: 5240, comments: 187 },
+    estReach: '512K',
+    engScore: 64,
+    type: 'Photo',
+    author: 'Manila Car Spotter',
+    influencerScore: '72',
+    followers: '512K',
+    tone: 'positive',
+    keywords: [['dealership', 2], ['cavite', 1], ['launch', 1]],
   },
   {
     platform: 'youtube',
@@ -55,6 +87,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Sealion 7'],
     url: 'https://www.youtube.com/watch?v=motoringph-sealion7',
     engagement: { likes: 9800, comments: 640, views: 184000 },
+    estReach: '184K',
+    engScore: 88,
+    type: 'Video',
+    author: 'Motoring PH',
+    influencerScore: '82',
+    followers: '918K',
+    tone: 'positive',
+    keywords: [['sealion 7', 2], ['review', 1], ['road trip', 1]],
   },
   {
     platform: 'tiktok',
@@ -68,6 +108,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Technology'],
     url: 'https://www.tiktok.com/@evsokay.ph/video/7300000000000000002',
     engagement: { likes: 48200, comments: 1340, shares: 6100, views: 612000 },
+    estReach: '612K',
+    engScore: 96,
+    type: 'Video',
+    author: 'EV So Okay PH',
+    influencerScore: '93',
+    followers: '1.2M',
+    tone: 'positive',
+    keywords: [['charging', 2], ['byd', 1]],
   },
   {
     platform: 'reddit',
@@ -80,6 +128,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Buying Guide'],
     url: 'https://www.reddit.com/r/Philippines/comments/byd-vs-hybrids-discussion',
     engagement: { upvotes: 1450, comments: 312, awards: 2 },
+    estReach: '47K',
+    engScore: 40,
+    type: 'Text',
+    author: 'r/Philippines Auto',
+    influencerScore: '39',
+    followers: '47K',
+    tone: 'mixed',
+    keywords: [['byd', 1], ['hybrid', 1], ['camry', 1]],
   },
   {
     platform: 'facebook',
@@ -92,6 +148,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Atto 3'],
     url: 'https://www.facebook.com/groups/bydphilippinesowners/posts/service-wait',
     engagement: { likes: 64, comments: 112, shares: 18 },
+    estReach: '2.1K',
+    engScore: 18,
+    type: 'Text',
+    author: 'Juan Dela Cruz',
+    influencerScore: '08',
+    followers: '3.2K',
+    tone: 'negative',
+    keywords: [['atto 3', 1], ['service', 2], ['after-sales', 1]],
   },
   {
     platform: 'twitter',
@@ -104,6 +168,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Seal 5 DM-i'],
     url: 'https://x.com/waitlistwoes/status/1234567890123456790',
     engagement: { likes: 89, replies: 34, reposts: 12, views: 6200 },
+    estReach: '6.2K',
+    engScore: 14,
+    type: 'Text',
+    author: 'Waitlist Woes',
+    influencerScore: '11',
+    followers: '5.4K',
+    tone: 'negative',
+    keywords: [['seal 5', 2], ['allocation', 1], ['reservation', 1]],
   },
   {
     platform: 'instagram',
@@ -117,6 +189,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Atto 2'],
     url: 'https://www.instagram.com/p/yanaootd-atto2',
     engagement: { likes: 12400, comments: 356 },
+    estReach: '226K',
+    engScore: 74,
+    type: 'Photo',
+    author: 'Yana OOTD',
+    influencerScore: '68',
+    followers: '226K',
+    tone: 'positive',
+    keywords: [['atto 2', 2], ['trunk', 1]],
   },
   {
     platform: 'youtube',
@@ -130,6 +210,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Sealion 7', 'Buying Guide'],
     url: 'https://www.youtube.com/watch?v=topgearph-byd-vs-tesla',
     engagement: { likes: 7300, comments: 890, views: 210000 },
+    estReach: '210K',
+    engScore: 90,
+    type: 'Video',
+    author: 'Top Gear PH',
+    influencerScore: '80',
+    followers: '1.87M',
+    tone: 'mixed',
+    keywords: [['sealion 7', 1], ['tesla', 2], ['model y', 1]],
   },
   {
     platform: 'reddit',
@@ -142,6 +230,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Buying Guide'],
     url: 'https://www.reddit.com/r/Philippines/comments/byd-reliability-question',
     engagement: { upvotes: 890, comments: 204 },
+    estReach: '12.8K',
+    engScore: 30,
+    type: 'Text',
+    author: 'Kurioso Kotse',
+    influencerScore: '24',
+    followers: '18K',
+    tone: 'mixed',
+    keywords: [['byd', 1], ['reliability', 1], ['ev', 1]],
   },
   {
     platform: 'tiktok',
@@ -155,6 +251,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['eMAX9'],
     url: 'https://www.tiktok.com/@roadtripph/video/7300000000000000003',
     engagement: { likes: 21800, comments: 704, shares: 3200, views: 398000 },
+    estReach: '398K',
+    engScore: 93,
+    type: 'Video',
+    author: 'Road Trip PH',
+    influencerScore: '88',
+    followers: '640K',
+    tone: 'positive',
+    keywords: [['emax9', 2], ['road trip', 1], ['la union', 1]],
   },
   {
     platform: 'twitter',
@@ -167,6 +271,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Tesla'],
     url: 'https://x.com/caradvisorph/status/1234567890123456791',
     engagement: { likes: 156, replies: 41, reposts: 19, views: 9800 },
+    estReach: '9.8K',
+    engScore: 20,
+    type: 'Text',
+    author: 'Car Advisor PH',
+    influencerScore: '21',
+    followers: '54K',
+    tone: 'mixed',
+    keywords: [['sealion 7', 1], ['tesla', 1], ['model y', 1]],
   },
   {
     platform: 'facebook',
@@ -179,6 +291,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Executive & Spokesperson'],
     url: 'https://www.facebook.com/BYDPhilippines/posts/country-manager-statement',
     engagement: { likes: 1240, comments: 88, shares: 152 },
+    estReach: '120K',
+    engScore: 52,
+    type: 'Text',
+    author: 'BYD Philippines',
+    influencerScore: '60',
+    followers: '210K',
+    tone: 'positive',
+    keywords: [['dealership', 2], ['q1 2027', 1], ['byd', 1]],
   },
   {
     platform: 'reddit',
@@ -191,6 +311,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['Recalls & Safety'],
     url: 'https://www.reddit.com/r/Philippines/comments/byd-battery-software-update',
     engagement: { upvotes: 620, comments: 145 },
+    estReach: '8.4K',
+    engScore: 16,
+    type: 'Text',
+    author: 'PH Car News',
+    influencerScore: '15',
+    followers: '22K',
+    tone: 'negative',
+    keywords: [['battery', 2], ['software', 1], ['safety', 1]],
   },
   {
     platform: 'youtube',
@@ -203,6 +331,14 @@ export const socialMentions: SocialMention[] = [
     entities: ['EV Policy & Incentives'],
     url: 'https://www.youtube.com/watch?v=motoringph-ev-incentives',
     engagement: { likes: 3400, comments: 210, views: 78000 },
+    estReach: '78K',
+    engScore: 60,
+    type: 'Video',
+    author: 'Motoring PH',
+    influencerScore: '80',
+    followers: '918K',
+    tone: 'mixed',
+    keywords: [['ev policy', 1], ['evida', 1], ['incentives', 1]],
   },
 ];
 
@@ -216,3 +352,183 @@ export const influencers: InfluencerStat[] = [
   { name: 'Yana OOTD', handle: '@yanaootd', platform: 'instagram', followers: 226000, engagementScore: 588 },
   { name: 'Top Gear Philippines', handle: 'Top Gear Philippines', platform: 'youtube', followers: 1870000, engagementScore: 803 },
 ];
+
+// Authored trending-story clusters for Today's Brief. Member posts, counts,
+// value and sentiment are derived from the socialMentions tagged with each
+// story's entities — only the title / tier / why are authored here.
+export const trendingStories: TrendingStory[] = [
+  {
+    rank: 1,
+    tier: 'T1',
+    title: 'Sealion 7 vs Tesla cross-shopping intensifies',
+    why: 'Dual-motor review coverage and Tesla Model Y comparisons pushed the Sealion 7 across motoring and tech channels within the week.',
+    entities: ['Sealion 7', 'Tesla'],
+  },
+  {
+    rank: 2,
+    tier: 'T1',
+    title: 'eMAX9 road-trip buzz & charging wins spread',
+    why: 'A Manila–La Union family road trip and fast-charging clips drove positive MPV and EV-charging conversation.',
+    entities: ['eMAX9', 'Technology', 'Atto 2'],
+  },
+  {
+    rank: 3,
+    tier: 'T1',
+    title: 'Seal 5 DM-i pricing meets allocation backlog',
+    why: 'Fresh PH pricing landed against reservation-backlog complaints, splitting sentiment on the plug-in hybrid.',
+    entities: ['Seal 5 DM-i'],
+  },
+  {
+    rank: 4,
+    tier: 'T2',
+    title: 'Atto 3 — ride quality vs after-sales split',
+    why: 'Owners praise the upgraded suspension while service-queue complaints temper the enthusiasm.',
+    entities: ['Atto 3'],
+  },
+  {
+    rank: 5,
+    tier: 'T2',
+    title: 'BYD dealership expansion across Cavite & Cebu',
+    why: "Launch turnout and a country-manager commitment frame BYD's physical retail push.",
+    entities: ['Dealership Expansion', 'Executive & Spokesperson'],
+  },
+  {
+    rank: 6,
+    tier: 'T2',
+    title: 'Reliability, policy & safety shape the EV outlook',
+    why: 'Long-term reliability threads, EVIDA incentives and a battery-software bulletin raise buyer questions.',
+    entities: ['Buying Guide', 'Recalls & Safety', 'EV Policy & Incentives'],
+  },
+];
+
+// Authored BYD-themed tracker activities (same shape as the web tracker's acts,
+// adapted to the BYD/EV topic). Two carry matched coverage; the rest start empty
+// (0 matches / PHP 0). The keyword bank (utils/metrics) is scanned against these.
+const rawTrackerActivities: TrackerActivity[] = [
+  {
+    id: 1,
+    title: 'BYD Sealion 7 — Launch & Review Push',
+    type: 'Product',
+    date: 'Jul 24, 2026',
+    description:
+      'BYD Sealion 7 dual-motor launch and review coverage, with Tesla Model Y comparisons landing across motoring and tech outlets as the EV reaches PH dealerships.',
+    matches: [
+      { media: 'Online', source: 'AutoDeal Philippines', title: 'BYD Sealion 7 review: the best EV under PHP 3M?', date: 'Jul 23, 2026', value: 256000, score: 0.94 },
+      { media: 'Online', source: 'Top Gear Philippines', title: 'BYD Sealion 7 vs Tesla Model Y — which EV makes sense in PH?', date: 'Jul 22, 2026', value: 190000, score: 0.88 },
+      { media: 'TV', source: 'ABS-CBN News', title: 'BYD Sealion 7 arrives in Philippine dealerships', date: 'Jul 20, 2026', value: 890000, score: 0.82 },
+      { media: 'Online', source: 'VISOR.ph', title: 'BYD Sealion 7 dual-motor first drive and range test', date: 'Jul 24, 2026', value: 78000, score: 0.76 },
+    ],
+  },
+  {
+    id: 2,
+    title: 'Seal 5 DM-i — Pricing & Allocation Response',
+    type: 'Crisis',
+    date: 'Jul 21, 2026',
+    description:
+      'Managing reservation-backlog complaints against the fresh Seal 5 DM-i plug-in hybrid pricing rollout as cross-shoppers weigh it against the Atto 3 and Sealion 7.',
+    matches: [
+      { media: 'Online', source: 'AutoIndustriya', title: 'BYD Seal 5 DM-i pricing lands between Atto 3 and Sealion 7', date: 'Jul 21, 2026', value: 397000, score: 0.96 },
+      { media: 'Print', source: 'Manila Bulletin', title: 'Seal 5 DM-i reservation backlog frustrates PH buyers', date: 'Jul 21, 2026', value: 206000, score: 0.91 },
+      { media: 'Online', source: 'Philippine Star', title: 'BYD addresses Seal 5 DM-i delivery timeline', date: 'Jul 20, 2026', value: 631000, score: 0.88 },
+      { media: 'Online', source: 'Carmudi Philippines', title: 'Plug-in hybrid Seal 5 DM-i draws cross-shoppers', date: 'Jul 19, 2026', value: 120000, score: 0.83 },
+    ],
+  },
+  {
+    id: 3,
+    title: 'Atto 2 City EV — Launch Coverage',
+    type: 'Product',
+    date: 'Jul 16, 2026',
+    description:
+      'BYD Atto 2 city EV launches in the PH market — compact footprint, hatchback practicality and an entry-level EV price point.',
+    matches: [],
+  },
+  {
+    id: 4,
+    title: 'eMAX9 Family MPV — Road-trip Campaign',
+    type: 'Trending',
+    date: 'Jul 20, 2026',
+    description:
+      'eMAX9 DM-i family MPV road-trip buzz and fast-charging wins driving MPV and EV-charging conversation.',
+    matches: [],
+  },
+  {
+    id: 5,
+    title: 'Dealership Expansion — Cavite & Cebu Rollout',
+    type: 'Press Release',
+    date: 'Jul 22, 2026',
+    description:
+      "New BYD dealership launches and a country-manager commitment to the brand's physical retail push across Cavite and Cebu.",
+    matches: [],
+  },
+  {
+    id: 6,
+    title: 'Atto 3 After-sales — Service Experience Watch',
+    type: 'Crisis',
+    date: 'Jul 15, 2026',
+    description:
+      'Owner praise for ride quality tempered by service-queue complaints on the Atto 3 after-sales experience.',
+    matches: [],
+  },
+  {
+    id: 7,
+    title: 'Battery Safety Bulletin — Software Update',
+    type: 'Event',
+    date: 'Jul 19, 2026',
+    description:
+      'Owner questions around a battery-management software bulletin and long-term reliability threads.',
+    matches: [],
+  },
+  {
+    id: 8,
+    title: 'EVIDA Incentives — Policy Explainer Coverage',
+    type: 'Press Release',
+    date: 'Jul 10, 2026',
+    description:
+      'Coverage of EVIDA import-duty incentives and what buyers actually save on BYD pricing.',
+    matches: [],
+  },
+  {
+    id: 9,
+    title: 'Fast-Charging Network — Partner Rollout',
+    type: 'Trending',
+    date: 'Jul 12, 2026',
+    description:
+      'BYD partners on a fast-charging network rollout, expanding EV charger access across key cities.',
+    matches: [],
+  },
+  {
+    id: 10,
+    title: 'Sealion 7 vs Tesla — Cross-shopping Surge',
+    type: 'Trending',
+    date: 'Jul 18, 2026',
+    description:
+      'Sealion 7 versus Tesla Model Y cross-shopping surges as PH buyers compare price, range and service network.',
+    matches: [],
+  },
+];
+
+// ── Re-date to "now" ──
+// Shift every authored date so the newest post lands on today, keeping the
+// spacing between posts. `ago` is recomputed from the shifted date; `capturedAt`
+// keeps its time-of-day. See utils/recent-dates.
+const _now = Date.now();
+const _shift = dayShift(Math.max(...rawSocialMentions.map((m) => parseMDY(m.date))), _now);
+
+export const socialMentions: SocialMention[] = rawSocialMentions.map((m) => {
+  const d = parseMDY(m.date) + _shift;
+  return {
+    ...m,
+    date: formatMDY(d),
+    ago: humanizeAgo(d, _now),
+    // capturedAt is the "metrics as of" scrape time — a varied recent refresh,
+    // staggered per post (seeded by URL), always after the post and ≤ now, so the
+    // "As of …" lines look freshly but independently updated rather than identical.
+    capturedAt: formatCapturedAt(recentCapturedAt(m.url, d, _now)),
+  } as SocialMention;
+});
+
+export const trackerActivities: TrackerActivity[] = rawTrackerActivities.map((a) => ({
+  ...a,
+  date: shiftDateString(a.date, _shift),
+  matches: a.matches.map((mt) => ({ ...mt, date: shiftDateString(mt.date, _shift) })),
+}));

@@ -148,8 +148,10 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    maxWidth: 200,
+    minWidth: 190,
+    maxWidth: 190,
   },
   triggerText: {
     fontSize: 16,

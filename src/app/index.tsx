@@ -20,20 +20,27 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthorAvatar } from '@/components/author-avatar';
+import { FeedCoverageBar } from '@/components/feed-coverage-bar';
+import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { CategoryDropdown } from '@/components/category-dropdown';
+import { MediaWatchMentions } from '@/components/mediawatch/mentions-screen';
 import { MentionCard } from '@/components/mention-card';
 import {
+  ALL_PLATFORMS,
   DEFAULT_FILTERS,
+  last7Days,
   MentionsFilters,
   MentionsFiltersSheet,
 } from '@/components/mentions-filters-sheet';
-import { MmiIcon } from '@/components/mmi-icon';
+import { TodaysBriefCard } from '@/components/todays-brief-card';
+import { ViewSwitcher } from '@/components/view-switcher';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
+import { useCategoryFilter } from '@/contexts/category-filter-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
 import { socialMentions } from '@/data/sample-data';
-import { bucketsForCategory, CATEGORY_TAXONOMY } from '@/data/taxonomy';
+import { bucketsForCategory } from '@/data/taxonomy';
 import { SocialMention } from '@/data/types';
 
 // Local warm theme, scoped to this screen only — the rest of the app keeps
@@ -94,24 +101,42 @@ function FadeEdgeRow({
   );
 }
 
-export default function HomeScreen() {
+// Route dispatcher: MediaWatch renders the news-article Mentions feed; every
+// other view keeps the SharedView social feed below, byte-for-byte unchanged.
+export default function HomeRoute() {
+  const { activeView } = useAuth();
+  return activeView === 'MediaWatch' ? <MediaWatchMentions /> : <SharedViewHome />;
+}
+
+function SharedViewHome() {
   const { isSaved, toggleSave } = useBookmarks();
-  const [filters, setFilters] = useState<MentionsFilters>(DEFAULT_FILTERS);
+  // Default the Home feed to the last 7 days (see FeedCoverageBar / filters).
+  const [filters, setFilters] = useState<MentionsFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    dateRange: last7Days(),
+  }));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORY_TAXONOMY[0].name);
+  // Shared with the Categories screen (reached from More) and the header
+  // dropdown below — selecting a category anywhere drives this one feed filter.
+  const { selectedCategory, setSelectedCategory } = useCategoryFilter();
 
   const authorScrollRef = useRef<ScrollView>(null);
   const authorOffsets = useRef<Record<string, number>>({});
   const listRef = useRef<FlatList>(null);
   const navigation = useNavigation();
   const router = useRouter();
-  const { accentColor } = useAuth();
+  const { accentColor, activeView, selectView } = useAuth();
   const { hideProgress } = useTabBarVisibility();
   const insets = useSafeAreaInsets();
+  const { visible: showTop, onScroll: onScrollTop } = useScrollToTop();
 
   const [topBarHeight, setTopBarHeight] = useState(56);
+  const [coverageH, setCoverageH] = useState(72);
+  const [headerBeforeH, setHeaderBeforeH] = useState(0);
+  const coverageTranslate = useRef(new Animated.Value(0)).current;
+  const hpRef = useRef(0);
   const lastScrollY = useRef(0);
   const scrollDirectionRef = useRef<'up' | 'down'>('up');
 
@@ -157,6 +182,28 @@ export default function HomeScreen() {
     }).start();
   }
 
+  // Sticky coverage bar: it scrolls with the feed just below the brief card,
+  // then pins once the brief has scrolled past — just under the nav row, or at
+  // the status-bar edge once the nav itself hides. Driven in JS from the scroll
+  // offset and the nav's hide-progress so it never overlaps the nav.
+  const recomputeCoverage = useCallback(
+    (y: number) => {
+      const naturalTop = topBarHeight + headerBeforeH - y;
+      const pinnedTop = topBarHeight - hpRef.current * (topBarHeight - insets.top);
+      coverageTranslate.setValue(Math.max(pinnedTop, naturalTop));
+    },
+    [topBarHeight, headerBeforeH, insets.top, coverageTranslate],
+  );
+
+  useEffect(() => {
+    recomputeCoverage(lastScrollY.current);
+    const id = hideProgress.addListener(({ value }) => {
+      hpRef.current = value;
+      recomputeCoverage(lastScrollY.current);
+    });
+    return () => hideProgress.removeListener(id);
+  }, [recomputeCoverage, hideProgress]);
+
   // Hides the top/bottom bars on a sustained downward scroll, shows them on
   // any upward scroll or whenever the feed is near its very top — ignores
   // small jitter and the elastic top-of-list bounce so they don't flicker.
@@ -177,7 +224,16 @@ export default function HomeScreen() {
       }
     }
     lastScrollY.current = y;
+    recomputeCoverage(y);
   }
+
+  // Anything diverging from the defaults counts as an active filter — drives the
+  // indicator dot. The date window is excluded: the feed defaults to a 7-day
+  // range, so it's a standing scope rather than an ad-hoc filter.
+  const hasActiveFilters =
+    filters.topics.size > 0 ||
+    filters.platforms.size !== ALL_PLATFORMS.length ||
+    filters.sortOrder !== 'newest';
 
   const filteredMentions = useMemo(() => {
     const { start, end } = filters.dateRange;
@@ -227,7 +283,10 @@ export default function HomeScreen() {
           data={filteredMentions}
           keyExtractor={(item) => item.url}
           contentContainerStyle={[styles.listContent, { paddingTop: topBarHeight }]}
-          onScroll={handleScroll}
+          onScroll={(e) => {
+            handleScroll(e);
+            onScrollTop(e);
+          }}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -235,6 +294,7 @@ export default function HomeScreen() {
           }
           ListHeaderComponent={
             <View style={styles.listHeader}>
+              <View onLayout={(e: LayoutChangeEvent) => setHeaderBeforeH(e.nativeEvent.layout.height)}>
               <FadeEdgeRow scrollRef={authorScrollRef}>
                 {selectedAuthor && (
                   <Pressable
@@ -274,6 +334,20 @@ export default function HomeScreen() {
                   );
                 })}
               </FadeEdgeRow>
+              <View style={styles.briefWrap}>
+                {/* Today's Brief is a fixed daily summary computed from the full
+                    dataset — it must NOT react to the category dropdown, filter
+                    sheet, sort order, or influencer selection (matching the web
+                    reference, where the brief is static). No `category` is passed
+                    so "View full brief" opens the same global brief (brief.tsx
+                    falls back to all mentions when category is absent). */}
+                <TodaysBriefCard mentions={socialMentions} />
+              </View>
+              </View>
+              {/* Reserves the in-flow space the (absolutely-positioned, sticky)
+                  coverage bar overlays, so it sits below the brief and the posts
+                  don't slide under it. */}
+              <View style={{ height: coverageH }} />
             </View>
           }
           renderItem={({ item }) => (
@@ -302,16 +376,17 @@ export default function HomeScreen() {
             },
           ]}>
           <View style={styles.brandRow}>
-            <MmiIcon size={26} color={accentColor} />
-            <CategoryDropdown value={selectedCategory} onChange={setSelectedCategory} />
+            <ViewSwitcher variant="logo" value={activeView ?? 'SharedView'} onChange={selectView} />
           </View>
+          <CategoryDropdown value={selectedCategory} onChange={setSelectedCategory} />
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setFiltersOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Open filters"
+              accessibilityLabel={hasActiveFilters ? 'Open filters. Filters active' : 'Open filters'}
               hitSlop={8}>
               <Ionicons name="options-outline" size={22} color={palette.text} />
+              {hasActiveFilters && <View style={[styles.filterDot, { backgroundColor: accentColor }]} />}
             </Pressable>
             <Pressable
               onPress={() => router.push('/profile')}
@@ -323,6 +398,14 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {/* Sticky coverage bar — scrolls below the brief card, then pins to the
+            top once the brief scrolls past (position driven by recomputeCoverage). */}
+        <Animated.View
+          onLayout={(e: LayoutChangeEvent) => setCoverageH(e.nativeEvent.layout.height)}
+          style={[styles.coverageBar, { transform: [{ translateY: coverageTranslate }] }]}>
+          <FeedCoverageBar items={filteredMentions} noun="post" dateRange={filters.dateRange} />
+        </Animated.View>
+
         <MentionsFiltersSheet
           visible={filtersOpen}
           initialFilters={filters}
@@ -331,6 +414,11 @@ export default function HomeScreen() {
             setFiltersOpen(false);
           }}
           onClose={() => setFiltersOpen(false)}
+        />
+
+        <BackToTop
+          visible={showTop}
+          onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
         />
       </SafeAreaView>
     </View>
@@ -357,14 +445,27 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   brandRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
   headerActions: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: Spacing.three,
+  },
+  filterDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: palette.background,
   },
   topBarFloating: {
     position: 'absolute',
@@ -372,6 +473,18 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: palette.background,
+    zIndex: 3,
+  },
+  // Sticky coverage strip — translateY is driven in JS (recomputeCoverage).
+  coverageBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: palette.background,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
     zIndex: 2,
   },
   statusBarBackdrop: {
@@ -430,6 +543,13 @@ const styles = StyleSheet.create({
   listHeader: {
     marginHorizontal: -Spacing.three,
     paddingBottom: Spacing.two,
+  },
+  // listHeader stretches edge-to-edge for the avatar row's fade; the brief
+  // card restores the list's horizontal inset.
+  briefWrap: {
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.two,
   },
   listContent: {
     paddingHorizontal: Spacing.three,

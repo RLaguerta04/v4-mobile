@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PageHeading } from '@/components/page-heading';
 import { ViewSwitcher } from '@/components/view-switcher';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
@@ -32,7 +33,7 @@ export default function ProfileScreen() {
     <View style={styles.screen}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <PageHeading title="Profile" description="Your account" />
         </View>
 
         <View style={styles.identityCard}>
