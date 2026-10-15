@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -40,8 +41,13 @@ export function LoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.select({ ios: 'padding', android: undefined })}>
-          <View style={styles.content}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}>
             <View style={styles.header}>
               <MmiIcon size={56} color={accentColor} />
               <Text style={styles.title}>Welcome back</Text>
@@ -126,7 +132,7 @@ export function LoginScreen() {
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -145,9 +151,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: Spacing.five,
+    paddingVertical: Spacing.six,
     gap: Spacing.six,
   },
   header: {

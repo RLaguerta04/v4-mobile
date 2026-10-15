@@ -1,4 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { createContext, useContext, useState } from 'react';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
 
 export type AppView = 'MediaWatch' | 'SharedView' | 'AdWatch';
 
@@ -14,6 +17,15 @@ export const VIEW_ACCENT_COLORS: Record<AppView, string> = {
   SharedView: '#2563EB',
   MediaWatch: '#E94F37',
   AdWatch: '#7C3AED',
+};
+
+// Each view's icon tells you what it monitors: MediaWatch = web articles,
+// SharedView = social posts, AdWatch = ads. Shared by the view switcher sheet
+// and the "Choose your view" selection screen so they never diverge.
+export const VIEW_ICON: Record<AppView, IoniconName> = {
+  MediaWatch: 'newspaper',
+  SharedView: 'chatbubbles',
+  AdWatch: 'megaphone',
 };
 
 interface AuthContextValue {

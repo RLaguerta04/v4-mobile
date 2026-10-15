@@ -5,23 +5,13 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 
 import { MmiIcon } from '@/components/mmi-icon';
 import { Spacing } from '@/constants/theme';
-import { APP_VIEWS, AppView, VIEW_ACCENT_COLORS } from '@/contexts/auth-context';
+import { APP_VIEWS, AppView, VIEW_ACCENT_COLORS, VIEW_ICON } from '@/contexts/auth-context';
 
 const palette = {
   text: '#1A1A1A',
   textSecondary: '#8A8580',
   card: '#FFFFFF',
   border: '#E7DDCC',
-};
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
-
-// Each view's icon tells you what it monitors: MediaWatch = web articles,
-// SharedView = social posts, AdWatch = ads.
-const VIEW_ICON: Record<AppView, IoniconName> = {
-  MediaWatch: 'newspaper',
-  SharedView: 'chatbubbles',
-  AdWatch: 'megaphone',
 };
 
 // Starting/ending Y offset for the sheet's slide animation — well past the

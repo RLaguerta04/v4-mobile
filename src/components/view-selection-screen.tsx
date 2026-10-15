@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MmiIcon } from '@/components/mmi-icon';
 import { Spacing } from '@/constants/theme';
-import { APP_VIEWS, useAuth, VIEW_ACCENT_COLORS } from '@/contexts/auth-context';
+import { APP_VIEWS, useAuth, VIEW_ACCENT_COLORS, VIEW_ICON } from '@/contexts/auth-context';
 
 const palette = {
   background: '#F5F4F0',
@@ -40,7 +40,9 @@ export function ViewSelectionScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={view}>
                 <View style={styles.optionLabel}>
-                  <View style={[styles.optionSwatch, { backgroundColor: VIEW_ACCENT_COLORS[view] }]} />
+                  <View style={[styles.optionBadge, { backgroundColor: VIEW_ACCENT_COLORS[view] }]}>
+                    <Ionicons name={VIEW_ICON[view]} size={17} color="#FFFFFF" />
+                  </View>
                   <Text style={styles.optionText}>{view}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
@@ -109,10 +111,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  optionSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  // Matches the Home view switcher's viewBadge (30×30 rounded square + icon).
+  optionBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionText: {
     fontSize: 16,
