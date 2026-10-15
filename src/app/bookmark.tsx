@@ -20,9 +20,9 @@ import { PageHeading } from '@/components/page-heading';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
+import { useMediaWatchTracker } from '@/contexts/mediawatch-tracker-context';
+import { useSocialTracker } from '@/contexts/social-tracker-context';
 import { useTrackerActivities } from '@/contexts/tracker-context';
-import { mediawatchActivities } from '@/data/mediawatch-articles';
-import { trackerActivities } from '@/data/sample-data';
 import { ActivityType } from '@/data/types';
 import { ResolvedActivity, resolveActivity } from '@/utils/metrics';
 
@@ -60,6 +60,8 @@ export default function BookmarkScreen() {
   const { activeView } = useAuth();
   const isMediaWatch = activeView === 'MediaWatch';
   const { userActivities, addActivity } = useTrackerActivities();
+  const { activities: mediaWatchActivities } = useMediaWatchTracker();
+  const { activities: socialActivities } = useSocialTracker();
   const [selected, setSelected] = useState<ResolvedActivity | null>(null);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All Types');
@@ -71,10 +73,11 @@ export default function BookmarkScreen() {
   const [headerH, setHeaderH] = useState(120);
 
   // User-created activities first, then the authored set for the active
-  // workspace (MediaWatch article coverage vs SharedView social activities).
+  // workspace. Both are kept live via their tracker contexts (MediaWatch article
+  // coverage / SharedView social activities) so Add to Tracker edits show up here.
   const activities = useMemo(
-    () => [...userActivities, ...(isMediaWatch ? mediawatchActivities : trackerActivities)].map(resolveActivity),
-    [userActivities, isMediaWatch],
+    () => [...userActivities, ...(isMediaWatch ? mediaWatchActivities : socialActivities)].map(resolveActivity),
+    [userActivities, isMediaWatch, mediaWatchActivities, socialActivities],
   );
 
   const filtered = useMemo(() => {

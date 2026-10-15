@@ -38,6 +38,29 @@ export function shiftDateString(s: string, shiftMs: number): string {
   return s.replace(/[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}/, (match) => formatMDY(parseMDY(match) + shiftMs));
 }
 
+// Compress a set of authored dates into the last `windowDays` days: the newest
+// authored date lands on today, the oldest `windowDays` days ago, everything in
+// between proportionally (whole-day granularity). Use this instead of dayShift
+// when the authored spread is too wide and you want the feed to read "fresh"
+// (most posts today / this week) while keeping relative order. Returns helpers
+// to map either an epoch-ms value or a "Mon D, YYYY[…]" string.
+export function recentWindow(authoredMsList: number[], nowMs: number, windowDays: number) {
+  const valid = authoredMsList.filter((t) => t > 0);
+  const min = valid.length ? Math.min(...valid) : nowMs;
+  const max = valid.length ? Math.max(...valid) : nowMs;
+  const today = startOfDay(nowMs);
+  const span = max - min;
+  const mapMs = (t: number): number => {
+    if (!(t > 0) || span <= 0) return today;
+    const frac = (t - min) / span; // 0 = oldest, 1 = newest
+    const daysBack = Math.round((1 - frac) * windowDays);
+    return today - daysBack * DAY;
+  };
+  const mapString = (s: string): string =>
+    s.replace(/[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}/, (match) => formatMDY(mapMs(parseMDY(match))));
+  return { mapMs, mapString };
+}
+
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;

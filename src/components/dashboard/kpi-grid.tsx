@@ -27,7 +27,7 @@ function KpiCardView({ card, onPress }: { card: KpiCard; onPress?: () => void })
       </View>
 
       {card.isNumber ? (
-        <Text style={styles.bigValue} numberOfLines={1}>
+        <Text style={styles.bigValue} numberOfLines={1} adjustsFontSizeToFit>
           {card.value}
         </Text>
       ) : (
@@ -111,9 +111,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   bigValue: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '700',
     color: chartTokens.text,
+    letterSpacing: -0.4,
     marginTop: 2,
   },
   nameRow: {
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: chartTokens.text,
   },

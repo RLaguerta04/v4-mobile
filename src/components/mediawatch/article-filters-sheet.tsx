@@ -5,10 +5,11 @@
 // value / categories & buckets / date range / country).
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
+import { ArticleSavedFilter, cloneArticleFilters, useArticleSavedFilters } from '@/contexts/article-saved-filters-context';
 import { useAuth } from '@/contexts/auth-context';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import type { Sentiment } from '@/data/types';
@@ -79,6 +80,21 @@ function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
+function KeywordGroup({ label, words, excluded }: { label: string; words: string[]; excluded?: boolean }) {
+  return (
+    <View style={styles.keywordGroup}>
+      <Text style={styles.keywordGroupLabel}>{label}</Text>
+      <View style={styles.keywordChipRow}>
+        {words.map((word) => (
+          <View key={word} style={[styles.keywordChip, excluded && styles.keywordChipExcluded]}>
+            <Text style={[styles.keywordChipText, excluded && styles.keywordChipTextExcluded]}>{word}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function ArticleFiltersSheet({
   visible,
   initialFilters,
@@ -92,13 +108,18 @@ export function ArticleFiltersSheet({
 }) {
   const insets = useSafeAreaInsets();
   const { accentColor } = useAuth();
+  const { saved, saveFilter, removeFilter } = useArticleSavedFilters();
   const [pending, setPending] = useState<ArticleFilters>(initialFilters);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedKeywords, setExpandedKeywords] = useState<Set<string>>(new Set());
+  const [nameInput, setNameInput] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       setPending(initialFilters);
       setExpandedCategory(null);
+      setExpandedKeywords(new Set());
+      setNameInput(null);
     }
   }, [visible, initialFilters]);
 
@@ -127,6 +148,15 @@ export function ArticleFiltersSheet({
     }));
   }
 
+  function toggleBucketKeywords(bucket: string) {
+    setExpandedKeywords((prev) => {
+      const next = new Set(prev);
+      if (next.has(bucket)) next.delete(bucket);
+      else next.add(bucket);
+      return next;
+    });
+  }
+
   function applyQuickRange(days: number) {
     const end = startOfDay(new Date());
     const start = startOfDay(new Date());
@@ -137,6 +167,36 @@ export function ArticleFiltersSheet({
   function handleReset() {
     setPending(defaultArticleFilters(pending.category));
     setExpandedCategory(null);
+    setExpandedKeywords(new Set());
+    setNameInput(null);
+  }
+
+  function loadSaved(sf: ArticleSavedFilter) {
+    setPending(cloneArticleFilters(sf.filters));
+    setExpandedCategory(null);
+    setExpandedKeywords(new Set());
+    setNameInput(null);
+  }
+
+  // A sensible default name from the current config — e.g. "TV · Product · High (7–10)".
+  function suggestName(f: ArticleFilters): string {
+    const parts: string[] = [];
+    const channel = channelOf(f.mediaTypes);
+    if (channel !== 'All') parts.push(channel);
+    if (f.topics.size > 0) parts.push([...f.topics][0]);
+    if (f.sentiments.size > 0) {
+      parts.push([...f.sentiments].map((s) => s[0].toUpperCase() + s.slice(1)).join('/'));
+    }
+    const tier = SV_TIERS.find((t) => t.min === f.storyValueRange.min && t.max === f.storyValueRange.max);
+    if (tier && tier.label !== 'All') parts.push(tier.label);
+    if (f.sort !== 'newest') parts.push(SORTS.find((s) => s.value === f.sort)?.label ?? '');
+    return parts.filter(Boolean).join(' · ') || 'My filter';
+  }
+
+  function saveCurrent() {
+    const name = (nameInput ?? '').trim() || suggestName(pending);
+    saveFilter(name, pending);
+    setNameInput(null);
   }
 
   const svActive = (tier: { min: number; max: number }) =>
@@ -157,6 +217,68 @@ export function ArticleFiltersSheet({
         </View>
 
         <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+          <SectionLabel>Saved filters</SectionLabel>
+          <View style={styles.pillRow}>
+            {saved.map((sf) => (
+              <View key={sf.id} style={styles.savedChip}>
+                <Pressable
+                  onPress={() => loadSaved(sf)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Load filter ${sf.name}`}
+                  style={styles.savedChipMain}>
+                  <Ionicons name="star" size={12} color={accentColor} />
+                  <Text style={styles.savedChipText} numberOfLines={1}>
+                    {sf.name}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => removeFilter(sf.id)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete filter ${sf.name}`}
+                  style={styles.savedChipClose}>
+                  <Ionicons name="close" size={13} color={palette.sectionLabel} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              onPress={() => setNameInput(suggestName(pending))}
+              accessibilityRole="button"
+              accessibilityLabel="Save current filter"
+              style={styles.saveChip}>
+              <Ionicons name="add" size={15} color={palette.pillText} />
+              <Text style={styles.saveChipText}>Save current</Text>
+            </Pressable>
+          </View>
+          {nameInput !== null && (
+            <View style={styles.saveRow}>
+              <TextInput
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Name this filter"
+                placeholderTextColor={palette.sectionLabel}
+                style={styles.saveInput}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={saveCurrent}
+              />
+              <Pressable
+                onPress={saveCurrent}
+                accessibilityRole="button"
+                style={[styles.saveConfirm, { backgroundColor: accentColor }]}>
+                <Text style={styles.saveConfirmText}>Save</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setNameInput(null)}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                style={styles.saveCancel}>
+                <Ionicons name="close" size={16} color={palette.sectionLabel} />
+              </Pressable>
+            </View>
+          )}
+
           <SectionLabel>Sort by</SectionLabel>
           <View style={styles.pillRow}>
             {SORTS.map((s) => (
@@ -212,16 +334,54 @@ export function ArticleFiltersSheet({
                     <View style={styles.treeBucketList}>
                       {buckets.map((bucket) => {
                         const active = pending.topics.has(bucket.name);
+                        const keywordsShown = expandedKeywords.has(bucket.name);
                         return (
-                          <Pressable
-                            key={bucket.name}
-                            onPress={() => toggleTopic(bucket.name)}
-                            accessibilityRole="radio"
-                            accessibilityState={{ checked: active }}
-                            style={styles.treeBucketRow}>
-                            <Text style={[styles.treeBucketText, active && { color: accentColor, fontWeight: '700' }]}>{bucket.name}</Text>
-                            <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={18} color={active ? accentColor : palette.sectionLabel} />
-                          </Pressable>
+                          <View key={bucket.name}>
+                            <View style={styles.treeBucketRow}>
+                              <Pressable
+                                onPress={() => toggleBucketKeywords(bucket.name)}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${bucket.name} keywords`}
+                                accessibilityState={{ expanded: keywordsShown }}>
+                                <Ionicons
+                                  name={keywordsShown ? 'chevron-up' : 'pricetags-outline'}
+                                  size={16}
+                                  color={palette.sectionLabel}
+                                />
+                              </Pressable>
+                              <Pressable
+                                onPress={() => toggleTopic(bucket.name)}
+                                accessibilityRole="radio"
+                                accessibilityState={{ checked: active }}
+                                style={styles.treeBucketSelect}>
+                                <Text style={[styles.treeBucketText, active && { color: accentColor, fontWeight: '700' }]}>
+                                  {bucket.name}
+                                </Text>
+                                <Ionicons
+                                  name={active ? 'radio-button-on' : 'radio-button-off'}
+                                  size={18}
+                                  color={active ? accentColor : palette.sectionLabel}
+                                />
+                              </Pressable>
+                            </View>
+                            {keywordsShown && (
+                              <View style={styles.keywordPanel}>
+                                <KeywordGroup label="Main Keywords" words={bucket.keywords.main} />
+                                {bucket.keywords.additional && (
+                                  <KeywordGroup label="Additional Keywords" words={bucket.keywords.additional} />
+                                )}
+                                {bucket.keywords.related ? (
+                                  <KeywordGroup label="Related Keywords" words={bucket.keywords.related} />
+                                ) : (
+                                  <Text style={styles.keywordEmptyText}>No related keywords added</Text>
+                                )}
+                                {bucket.keywords.excluded && (
+                                  <KeywordGroup label="Excluded Keywords" words={bucket.keywords.excluded} excluded />
+                                )}
+                              </View>
+                            )}
+                          </View>
                         );
                       })}
                     </View>
@@ -291,14 +451,67 @@ const styles = StyleSheet.create({
   treeBucketRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.two,
     paddingLeft: Spacing.three,
     paddingVertical: Spacing.two,
   },
+  treeBucketSelect: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   treeBucketText: { fontSize: 14, color: palette.pillText },
+  keywordPanel: { marginLeft: Spacing.three + 16 + Spacing.two, paddingBottom: Spacing.two, gap: Spacing.two },
+  keywordGroup: { gap: 4 },
+  keywordGroupLabel: { fontSize: 11, fontWeight: '700', color: palette.sectionLabel, textTransform: 'uppercase' },
+  keywordChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  keywordChip: { paddingHorizontal: Spacing.two, paddingVertical: 4, borderRadius: 999, backgroundColor: palette.pillBg },
+  keywordChipExcluded: { backgroundColor: '#FBE9E7' },
+  keywordChipText: { fontSize: 12, fontWeight: '600', color: palette.pillText },
+  keywordChipTextExcluded: { color: '#B0463C', textDecorationLine: 'line-through' },
+  keywordEmptyText: { fontSize: 12, fontStyle: 'italic', color: palette.sectionLabel },
   footer: { flexDirection: 'row', gap: Spacing.two, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: palette.border },
   resetButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999, backgroundColor: palette.pillBg },
   resetButtonText: { fontSize: 15, fontWeight: '700', color: palette.pillText },
   applyButton: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999 },
   applyButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  savedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    backgroundColor: palette.pillBg,
+    paddingLeft: Spacing.two + 2,
+    paddingRight: 2,
+  },
+  savedChipMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: Spacing.one + 2,
+    maxWidth: 180,
+  },
+  savedChipText: { fontSize: 13, fontWeight: '600', color: palette.pillText },
+  savedChipClose: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  saveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderStyle: 'dashed',
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.one + 2,
+  },
+  saveChipText: { fontSize: 13, fontWeight: '600', color: palette.pillText },
+  saveRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
+  saveInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.two,
+    fontSize: 14,
+    color: palette.pillText,
+  },
+  saveConfirm: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 999 },
+  saveConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  saveCancel: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });

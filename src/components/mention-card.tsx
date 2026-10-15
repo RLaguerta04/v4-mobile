@@ -30,13 +30,15 @@ import {
   cardPalette,
   formatCount,
 } from '@/components/detail-primitives';
+import { AddToTrackerSheet } from '@/components/mediawatch/add-to-tracker-sheet';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
 import { SheetHeader } from '@/components/sheet-header';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
-import { SocialMention } from '@/data/types';
+import { useSocialTracker } from '@/contexts/social-tracker-context';
+import { SocialMention, TrackerMatch } from '@/data/types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -126,6 +128,9 @@ export function MentionCard({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
   const engagementItems = getEngagementItems(mention);
+  // Estimated reach / engagement score surfaced inline on the card's meta row.
+  // Both are optional, so the strip only renders when at least one is present.
+  const hasInsights = mention.estReach !== undefined || mention.engScore !== undefined;
 
   function emailArticle() {
     const subject = encodeURIComponent(`Mention from ${mention.handle}`);
@@ -217,20 +222,40 @@ export function MentionCard({
             </View>
           ))}
         </View>
-        {matchScore !== undefined && (
-          <View style={styles.matchBlock}>
-            <Text style={[styles.matchText, matchScore < 85 && styles.matchTextMid]}>
-              {matchScore}% match
-            </Text>
-            <View style={styles.matchTrack}>
-              <View
-                style={[
-                  styles.matchFill,
-                  matchScore < 85 && styles.matchFillMid,
-                  { width: `${matchScore}%` },
-                ]}
-              />
-            </View>
+        {(hasInsights || matchScore !== undefined) && (
+          <View style={styles.metaRight}>
+            {hasInsights && (
+              <View style={styles.insightsRow}>
+                {mention.estReach !== undefined && (
+                  <View style={styles.insightItem}>
+                    <Ionicons name="megaphone-outline" size={13} color={cardPalette.textSecondary} />
+                    <Text style={styles.insightText}>{mention.estReach}</Text>
+                  </View>
+                )}
+                {mention.engScore !== undefined && (
+                  <View style={styles.insightItem}>
+                    <Ionicons name="flash-outline" size={13} color={cardPalette.textSecondary} />
+                    <Text style={styles.insightText}>{mention.engScore}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            {matchScore !== undefined && (
+              <View style={styles.matchBlock}>
+                <Text style={[styles.matchText, matchScore < 85 && styles.matchTextMid]}>
+                  {matchScore}% match
+                </Text>
+                <View style={styles.matchTrack}>
+                  <View
+                    style={[
+                      styles.matchFill,
+                      matchScore < 85 && styles.matchFillMid,
+                      { width: `${matchScore}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         )}
         </View>
@@ -394,6 +419,21 @@ function MentionDetailsModal({
   const { isArticleSaved } = useSavedArticles();
   const tracked = isArticleSaved(mention.url);
 
+  // Tracker parity with MediaWatch's article detail. A social post has no
+  // article shape, so it's represented as a match keyed on its post text, with
+  // the handle as source and no media channel/value (social isn't a TrackerMedia).
+  const { activities, countMatches, toggleMatch, createActivityWithMatch } = useSocialTracker();
+  const trackedCount = countMatches(mention.post);
+  const trackerMatch: TrackerMatch = {
+    source: mention.handle,
+    media: 'Online',
+    title: mention.post,
+    date: mention.date,
+    value: 0,
+    score: 1,
+  };
+  const [trackerSheetOpen, setTrackerSheetOpen] = useState(false);
+
   // Actions bottom sheet (opened by the ··· button on the post card) — the
   // labeled icon+name menu, same slide-up/backdrop-fade pattern as the feed
   // card's options sheet. Rendered as an in-tree overlay (not a nested Modal).
@@ -443,7 +483,7 @@ function MentionDetailsModal({
         <Animated.View style={[styles.fill, dismiss.style]}>
           <GestureDetector gesture={dismiss.gesture}>
             <View>
-              <SheetHeader onClose={onClose} title="Mention Details" />
+              <SheetHeader onClose={onClose} title="Post Details" />
             </View>
           </GestureDetector>
 
@@ -476,6 +516,26 @@ function MentionDetailsModal({
             </View>
 
             <Text style={styles.detailsPostText}>{mention.post}</Text>
+
+            <View style={styles.trackerRow}>
+              <Pressable
+                onPress={() => setTrackerSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={trackedCount > 0 ? `In tracker, ${trackedCount} activities` : 'Add to tracker'}
+                style={[
+                  styles.trackerPill,
+                  trackedCount > 0 && { backgroundColor: `${accentColor}1A`, borderColor: `${accentColor}44` },
+                ]}>
+                <Ionicons
+                  name={trackedCount > 0 ? 'folder-open' : 'folder-outline'}
+                  size={13}
+                  color={trackedCount > 0 ? accentColor : cardPalette.textSecondary}
+                />
+                <Text style={[styles.trackerPillText, trackedCount > 0 && { color: accentColor }]}>
+                  {trackedCount > 0 ? `In Tracker · ${trackedCount}` : 'Add to Tracker'}
+                </Text>
+              </Pressable>
+            </View>
 
             {mention.thumb && (
               <View style={styles.detailsThumb}>
@@ -647,6 +707,15 @@ function MentionDetailsModal({
           visible={savePickerOpen}
           url={mention.url}
           onClose={() => setSavePickerOpen(false)}
+        />
+
+        <AddToTrackerSheet
+          visible={trackerSheetOpen}
+          match={trackerMatch}
+          activities={activities}
+          toggleMatch={toggleMatch}
+          createActivityWithMatch={createActivityWithMatch}
+          onClose={() => setTrackerSheetOpen(false)}
         />
       </GestureHandlerRootView>
     </Modal>
@@ -848,6 +917,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: Spacing.one,
   },
+  // Right side of the meta row. Holds the estimated-reach / engagement-score
+  // strip and, in Brief/coverage contexts, the match block stacked beneath it.
+  metaRight: {
+    alignItems: 'flex-end',
+    gap: Spacing.one,
+  },
+  insightsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  insightText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: cardPalette.textSecondary,
+  },
   matchBlock: {
     alignItems: 'flex-end',
     gap: 3,
@@ -971,6 +1061,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 24,
     color: cardPalette.text,
+  },
+
+  // "Add to Tracker" pill under the post text — mirrors the MediaWatch article
+  // detail's trackerPill. Wrapped in a row so the pill hugs its content width.
+  trackerRow: {
+    flexDirection: 'row',
+  },
+  trackerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: cardPalette.border,
+    backgroundColor: cardPalette.card,
+  },
+  trackerPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: cardPalette.textSecondary,
   },
 
   // Post-card actions bottom sheet (opened by ···) — overlays the detail modal.

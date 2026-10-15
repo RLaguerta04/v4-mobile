@@ -6,7 +6,7 @@
 // The post-detail fields (estReach, engScore, type, author, influencerScore,
 // followers, tone, keywords) back the expanded "Mention Details" view and
 // mirror the SharedView social model; authored prototype values, same caveat.
-import { dayShift, formatCapturedAt, formatMDY, humanizeAgo, parseMDY, recentCapturedAt, shiftDateString } from '@/utils/recent-dates';
+import { formatCapturedAt, formatMDY, humanizeAgo, parseMDY, recentCapturedAt, recentWindow } from '@/utils/recent-dates';
 import { InfluencerStat, SocialMention, TrackerActivity, TrendingStory } from './types';
 
 // Authored with July-2026 dates; re-dated to "now" at the bottom of this file
@@ -508,14 +508,22 @@ const rawTrackerActivities: TrackerActivity[] = [
 ];
 
 // ── Re-date to "now" ──
-// Shift every authored date so the newest post lands on today, keeping the
-// spacing between posts. `ago` is recomputed from the shifted date; `capturedAt`
-// keeps its time-of-day. See utils/recent-dates.
+// Compress every authored date into the last RECENT_WINDOW_DAYS days so the feed
+// always reads fresh: the newest post lands on today and the oldest ~2 weeks
+// back, keeping relative order. The feed and the Activity Tracker share one
+// timeline (combined min/max) so they stay consistent. `ago` is recomputed from
+// the re-dated day; `capturedAt` is a varied recent "metrics as of" refresh.
 const _now = Date.now();
-const _shift = dayShift(Math.max(...rawSocialMentions.map((m) => parseMDY(m.date))), _now);
+const RECENT_WINDOW_DAYS = 14;
+const _authored = [
+  ...rawSocialMentions.map((m) => parseMDY(m.date)),
+  ...rawTrackerActivities.map((a) => parseMDY(a.date)),
+  ...rawTrackerActivities.flatMap((a) => a.matches.map((mt) => parseMDY(mt.date))),
+];
+const _redate = recentWindow(_authored, _now, RECENT_WINDOW_DAYS);
 
 export const socialMentions: SocialMention[] = rawSocialMentions.map((m) => {
-  const d = parseMDY(m.date) + _shift;
+  const d = _redate.mapMs(parseMDY(m.date));
   return {
     ...m,
     date: formatMDY(d),
@@ -529,6 +537,6 @@ export const socialMentions: SocialMention[] = rawSocialMentions.map((m) => {
 
 export const trackerActivities: TrackerActivity[] = rawTrackerActivities.map((a) => ({
   ...a,
-  date: shiftDateString(a.date, _shift),
-  matches: a.matches.map((mt) => ({ ...mt, date: shiftDateString(mt.date, _shift) })),
+  date: _redate.mapString(a.date),
+  matches: a.matches.map((mt) => ({ ...mt, date: _redate.mapString(mt.date) })),
 }));

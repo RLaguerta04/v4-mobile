@@ -33,6 +33,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'The dual-motor BYD Sealion 7 undercuts the Tesla Model Y on price while matching it on range, making a strong case as the EV to beat under PHP 3M in the Philippine market.',
     authorScore: 7.2,
+    thumbnail: require('@/assets/images/byd/sealion-7-launch.jpg'),
   },
   {
     id: 'a2',
@@ -83,6 +84,7 @@ const rawNewsArticles: NewsArticle[] = [
     aired: 'Jul 23, 2026 · 6:30 PM',
     transcript:
       'The electric vehicle race in the Philippines is heating up as BYD rolls out its Sealion 7 to local dealerships, intensifying competition with Tesla and legacy brands...',
+    thumbnail: require('@/assets/images/byd/dealership-expansion.jpg'),
   },
   {
     id: 'a4',
@@ -218,6 +220,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'Our range test returned figures within a whisker of BYD’s claims, and the dual-motor Sealion 7 proved genuinely quick off the line in city driving.',
     authorScore: 6.0,
+    thumbnail: require('@/assets/images/byd/sealion-7-launch.jpg'),
   },
   {
     id: 'a10',
@@ -240,6 +243,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'Buyers weighing the Camry Hybrid are increasingly adding the Seal 5 DM-i to their shortlists, drawn by its plug-in range and lower running costs.',
     authorScore: 4.9,
+    thumbnail: require('@/assets/images/byd/seal-5-atto-2-teaser.jpg'),
   },
   {
     id: 'a11',
@@ -262,6 +266,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'The compact Atto 2 brings BYD’s most affordable EV yet to the Philippines, targeting first-time electric buyers with hatchback practicality.',
     authorScore: 5.7,
+    thumbnail: require('@/assets/images/byd/seal-5-atto-2-reservation.jpg'),
   },
   {
     id: 'a12',
@@ -284,6 +289,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'A seven-seat eMAX9 DM-i covered the Manila–La Union round trip on a single charge plus a tank, underscoring the appeal of plug-in hybrids for family travel.',
     authorScore: 5.0,
+    thumbnail: require('@/assets/images/byd/emax9-dmi.jpg'),
   },
   {
     id: 'a13',
@@ -395,6 +401,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'An ownership survey finds the Atto 3’s upgraded ride quality a highlight, while lengthening service-appointment queues are the most common gripe.',
     authorScore: 7.2,
+    thumbnail: require('@/assets/images/byd/atto-3-upgrade.jpg'),
   },
   {
     id: 'a18',
@@ -423,6 +430,7 @@ const rawNewsArticles: NewsArticle[] = [
     aired: 'Jul 17, 2026 · 9:00 PM',
     transcript:
       'Three very different players are fighting for the Filipino EV buyer: China’s BYD, America’s Tesla, and the hybrid incumbent Toyota. Tonight we break down what each brings to the table...',
+    thumbnail: require('@/assets/images/byd/mias-2026-preview.jpg'),
   },
   {
     id: 'a19',
@@ -607,6 +615,7 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'BYD’s “Drive Electric” campaign rolls out across TV, digital and mall activations, aiming to broaden EV awareness beyond early adopters.',
     authorScore: 4.9,
+    thumbnail: require('@/assets/images/byd/drive-electric-love-pinas.jpg'),
   },
   {
     id: 'a27',
@@ -651,6 +660,30 @@ const rawNewsArticles: NewsArticle[] = [
     summary:
       'The Atto 2 undercuts every EV in its class on price without feeling bargain-basement, making it the entry point many Filipino buyers have been waiting for.',
     authorScore: 5.0,
+  },
+  {
+    id: 'a29',
+    title: 'BYD Seal 5 DM-i spec sheet leak confirms Dynamic variant upgrades',
+    outlet: 'Philippine Star',
+    outletShort: 'Philstar',
+    section: 'Motoring',
+    author: 'Richmond Mercurio',
+    date: 'Jul 25, 2026',
+    ago: '5h ago',
+    ave: 221400,
+    storyValue: 4.9,
+    sentiment: 'neutral',
+    tone: 'mixed',
+    mediaType: 'broadsheet',
+    chart: [2, 5, 9, 7, 6, 4, 3, 2, 3],
+    keywords: [['seal 5', 3], ['specs sheet', 2], ['dynamic', 1]],
+    entities: ['Seal 5 DM-i', 'BYD Philippines'],
+    url: 'https://www.philstar.com/motoring/2026/07/25/byd-seal-5-dmi-specs-leak',
+    summary:
+      'A dealer specifications sheet circulating among BYD showrooms confirms the Seal 5 DM-i Dynamic variant gets DiPilot driver-assist, a 10.1-inch touchscreen and the 5th-generation Super DM-i powertrain, ahead of its full nationwide rollout.',
+    authorScore: 5.1,
+    page: 'B5',
+    pdfAttachment: require('@/assets/pdf/byd-seal-5-dm-i-152750.pdf'),
   },
 ];
 

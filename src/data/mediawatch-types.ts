@@ -4,6 +4,8 @@
 // workspaces never share a data source. `entities` carries the same bucket
 // names used by SocialMention (see taxonomy.ts) so the shared category filter
 // works identically, plus free-form org/person entities for the Entities tab.
+import type { ImageSourcePropType } from 'react-native';
+
 import type { ArticleTone, Sentiment } from './types';
 
 // Medium the article ran in — drives the headline icon + media filter.
@@ -66,6 +68,23 @@ export interface NewsArticle {
 
   // ── Print extras ──
   page?: string;
+
+  /**
+   * Lead photo (online/blog) or video poster frame (tv) — not every pickup
+   * has one, so the card/detail attachment falls back to a type-only badge
+   * when absent. Radio (waveform) and print (page chip) attachments are
+   * purely presentational and don't need an image of their own.
+   */
+  thumbnail?: ImageSourcePropType;
+
+  /**
+   * The real scanned-page file behind a print pickup's "Page N" chip — a
+   * Metro asset reference from require(), resolved to a local file via
+   * expo-asset and opened with expo-sharing's native share sheet. Most print
+   * articles don't have one (the chip still renders either way); when
+   * present, the detail view's "Preview full broadsheet" action becomes real.
+   */
+  pdfAttachment?: number;
 }
 
 // A publisher or author row — an aggregation computed from newsArticles

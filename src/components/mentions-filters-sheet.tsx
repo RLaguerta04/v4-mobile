@@ -10,7 +10,7 @@ import { socialMentions } from '@/data/sample-data';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import { SocialMention, SocialPlatform } from '@/data/types';
 
-export type SortOrder = 'newest' | 'oldest';
+export type SortOrder = 'newest' | 'oldest' | 'reachHigh' | 'reachLow' | 'engHigh' | 'engLow';
 
 export interface MentionsFilters {
   sortOrder: SortOrder;
@@ -75,10 +75,65 @@ export function filterMentions(
     }
     return true;
   });
-  return out.sort((a, b) => {
-    const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
-    return filters.sortOrder === 'newest' ? diff : -diff;
-  });
+  return sortMentions(out, filters.sortOrder);
+}
+
+// Parse the pre-formatted reach string ("84K", "28.4K", "1.2M") back to a number
+// so posts can be ordered by it. Returns null when absent/unparseable, which the
+// comparator pushes to the bottom regardless of sort direction.
+function reachValue(m: SocialMention): number | null {
+  if (!m.estReach) return null;
+  const s = m.estReach.trim().toUpperCase();
+  const num = parseFloat(s);
+  if (Number.isNaN(num)) return null;
+  if (s.endsWith('M')) return num * 1_000_000;
+  if (s.endsWith('K')) return num * 1_000;
+  return num;
+}
+
+// engScore is already numeric; 0 is a valid score, so only treat absent as null.
+function engValue(m: SocialMention): number | null {
+  return m.engScore ?? null;
+}
+
+// Order two optional metric values; a missing value always sorts last, in either
+// direction. Returns 0 on a tie so the caller can fall back to a secondary key.
+function compareMetric(a: number | null, b: number | null, dir: 'high' | 'low'): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return dir === 'high' ? b - a : a - b;
+}
+
+function byDateDesc(a: SocialMention, b: SocialMention): number {
+  return new Date(b.date).getTime() - new Date(a.date).getTime();
+}
+
+// Sort a mention list by any SortOrder. Shared by the Home feed (index.tsx) and
+// filterMentions so every surface orders posts identically. Metric sorts fall
+// back to newest-first on ties. Returns a new array (never mutates the input).
+export function sortMentions(mentions: SocialMention[], sortOrder: SortOrder): SocialMention[] {
+  const list = [...mentions];
+  switch (sortOrder) {
+    case 'newest':
+      return list.sort(byDateDesc);
+    case 'oldest':
+      return list.sort((a, b) => -byDateDesc(a, b));
+    case 'reachHigh':
+    case 'reachLow':
+      return list.sort(
+        (a, b) =>
+          compareMetric(reachValue(a), reachValue(b), sortOrder === 'reachHigh' ? 'high' : 'low') ||
+          byDateDesc(a, b),
+      );
+    case 'engHigh':
+    case 'engLow':
+      return list.sort(
+        (a, b) =>
+          compareMetric(engValue(a), engValue(b), sortOrder === 'engHigh' ? 'high' : 'low') ||
+          byDateDesc(a, b),
+      );
+  }
 }
 
 const palette = {
@@ -244,6 +299,7 @@ export function MentionsFiltersSheet({
   onApply,
   onClose,
   hideMediaSource = false,
+  showMetricSort = false,
 }: {
   visible: boolean;
   initialFilters: MentionsFilters;
@@ -252,6 +308,9 @@ export function MentionsFiltersSheet({
   // Hide the Media Source (platforms) section — e.g. the Dashboard keeps its
   // own platform pill row, so platforms are controlled there instead.
   hideMediaSource?: boolean;
+  // Show the extra reach/engagement sort pills. Home-only — the Dashboard
+  // aggregates data and keeps Sort by to just Newest/Oldest.
+  showMetricSort?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { accentColor } = useAuth();
@@ -364,7 +423,14 @@ export function MentionsFiltersSheet({
     else if (f.platforms.size < ALL_PLATFORMS.length) parts.push(`${f.platforms.size} sources`);
     if (f.topics.size > 0) parts.push([...f.topics][0]);
     if (f.dateRange.start) parts.push('Custom range');
-    if (f.sortOrder === 'oldest') parts.push('Oldest first');
+    const sortName: Partial<Record<SortOrder, string>> = {
+      oldest: 'Oldest first',
+      reachHigh: 'Highest reach',
+      reachLow: 'Lowest reach',
+      engHigh: 'Highest engagement',
+      engLow: 'Lowest engagement',
+    };
+    if (sortName[f.sortOrder]) parts.push(sortName[f.sortOrder]!);
     return parts.length ? parts.join(' · ') : 'My filter';
   }
 
@@ -473,15 +539,39 @@ export function MentionsFiltersSheet({
           <SectionLabel>Sort by</SectionLabel>
           <View style={styles.pillRow}>
             <Pill
-              label="Newest Mention"
+              label="Newest Post"
               active={pending.sortOrder === 'newest'}
               onPress={() => setPending((p) => ({ ...p, sortOrder: 'newest' }))}
             />
             <Pill
-              label="Oldest Mention"
+              label="Oldest Post"
               active={pending.sortOrder === 'oldest'}
               onPress={() => setPending((p) => ({ ...p, sortOrder: 'oldest' }))}
             />
+            {showMetricSort && (
+              <>
+                <Pill
+                  label="Highest Reach"
+                  active={pending.sortOrder === 'reachHigh'}
+                  onPress={() => setPending((p) => ({ ...p, sortOrder: 'reachHigh' }))}
+                />
+                <Pill
+                  label="Lowest Reach"
+                  active={pending.sortOrder === 'reachLow'}
+                  onPress={() => setPending((p) => ({ ...p, sortOrder: 'reachLow' }))}
+                />
+                <Pill
+                  label="Highest Engagement"
+                  active={pending.sortOrder === 'engHigh'}
+                  onPress={() => setPending((p) => ({ ...p, sortOrder: 'engHigh' }))}
+                />
+                <Pill
+                  label="Lowest Engagement"
+                  active={pending.sortOrder === 'engLow'}
+                  onPress={() => setPending((p) => ({ ...p, sortOrder: 'engLow' }))}
+                />
+              </>
+            )}
           </View>
 
           {!hideMediaSource && (
@@ -544,7 +634,7 @@ export function MentionsFiltersSheet({
                                 accessibilityLabel={`${bucket.name} keywords`}
                                 accessibilityState={{ expanded: keywordsShown }}>
                                 <Ionicons
-                                  name={keywordsShown ? 'chevron-up' : 'information-circle-outline'}
+                                  name={keywordsShown ? 'chevron-up' : 'pricetags-outline'}
                                   size={16}
                                   color={palette.sectionLabel}
                                 />

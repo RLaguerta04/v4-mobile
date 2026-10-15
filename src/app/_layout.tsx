@@ -13,11 +13,14 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { LoginScreen } from '@/components/login-screen';
 import { ViewSelectionScreen } from '@/components/view-selection-screen';
+import { ArticleSavedFiltersProvider } from '@/contexts/article-saved-filters-context';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { BookmarksProvider } from '@/contexts/bookmarks-context';
 import { CategoryFilterProvider } from '@/contexts/category-filter-context';
+import { MediaWatchTrackerProvider } from '@/contexts/mediawatch-tracker-context';
 import { SavedArticlesProvider } from '@/contexts/saved-articles-context';
 import { SavedFiltersProvider } from '@/contexts/saved-filters-context';
+import { SocialTrackerProvider } from '@/contexts/social-tracker-context';
 import { TabBarVisibilityProvider } from '@/contexts/tab-bar-visibility-context';
 import { TrackerProvider } from '@/contexts/tracker-context';
 
@@ -36,9 +39,15 @@ function RootContent() {
         <BookmarksProvider>
           <SavedArticlesProvider>
             <TrackerProvider>
-              <SavedFiltersProvider>
-                <AppTabs />
-              </SavedFiltersProvider>
+              <MediaWatchTrackerProvider>
+                <SocialTrackerProvider>
+                  <SavedFiltersProvider>
+                    <ArticleSavedFiltersProvider>
+                      <AppTabs />
+                    </ArticleSavedFiltersProvider>
+                  </SavedFiltersProvider>
+                </SocialTrackerProvider>
+              </MediaWatchTrackerProvider>
             </TrackerProvider>
           </SavedArticlesProvider>
         </BookmarksProvider>

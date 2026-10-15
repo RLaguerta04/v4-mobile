@@ -184,10 +184,13 @@ export function MediaWatchMentions() {
                   coverage bar overlays, so it sits below the brief and the
                   articles don't slide under it. */}
               <View style={{ height: coverageH }} />
+              {/* Breathing room below the bar before the first card — SharedView
+                  parity (its listHeader wrapper adds this same gap). */}
+              <View style={{ height: Spacing.two }} />
             </>
           }
           renderItem={({ item }) => <ArticleCard article={item} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={() => <View style={{ height: Spacing.five }} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No articles match these filters.</Text>}
         />
 
@@ -292,8 +295,7 @@ const styles = StyleSheet.create({
     borderColor: palette.background,
   },
   statusBarBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: palette.background, zIndex: 1 },
-  briefWrap: { marginTop: Spacing.two, marginBottom: Spacing.three },
+  briefWrap: { marginTop: Spacing.two, marginBottom: Spacing.two },
   listContent: { paddingHorizontal: Spacing.three, paddingBottom: BottomTabInset + Spacing.three },
-  separator: { height: Spacing.three, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7DDCC', marginBottom: Spacing.three },
   emptyText: { textAlign: 'center', color: palette.textSecondary, paddingTop: Spacing.six },
 });

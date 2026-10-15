@@ -31,6 +31,7 @@ import {
   last7Days,
   MentionsFilters,
   MentionsFiltersSheet,
+  sortMentions,
 } from '@/components/mentions-filters-sheet';
 import { TodaysBriefCard } from '@/components/todays-brief-card';
 import { ViewSwitcher } from '@/components/view-switcher';
@@ -252,10 +253,7 @@ function SharedViewHome() {
       }
       return true;
     });
-    return filtered.sort((a, b) => {
-      const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
-      return filters.sortOrder === 'newest' ? diff : -diff;
-    });
+    return sortMentions(filtered, filters.sortOrder);
   }, [filters, selectedAuthor, selectedCategory]);
 
   function toggleAuthor(handle: string) {
@@ -409,6 +407,7 @@ function SharedViewHome() {
         <MentionsFiltersSheet
           visible={filtersOpen}
           initialFilters={filters}
+          showMetricSort
           onApply={(next) => {
             setFilters(next);
             setFiltersOpen(false);

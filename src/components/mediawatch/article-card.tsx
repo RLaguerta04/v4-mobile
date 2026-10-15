@@ -4,11 +4,11 @@
 // overlay opens a light options sheet. Driven entirely by a NewsArticle.
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { SENTIMENT_DOT, cardPalette } from '@/components/detail-primitives';
 import { ArticleDetailModal } from '@/components/mediawatch/article-detail';
-import { MediaTypeIcon } from '@/components/mediawatch/article-ui';
+import { AudioAttachment, DocumentAttachment, MEDIA_TYPE_META, MediaTypeIcon } from '@/components/mediawatch/article-ui';
 import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
@@ -18,6 +18,31 @@ import { formatAve } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
 
 const SHEET_OFFSCREEN_Y = 400;
+const PRINT_TYPES = new Set(['broadsheet', 'provincial', 'tabloid', 'magazine']);
+
+// The card's media slot — what's shown depends entirely on mediaType, mirroring
+// how each medium's attachment differs in the reference reader (photo, video
+// poster, waveform, scanned page). Online/tv only show one when a thumbnail
+// was actually captured; radio/print always carry their attachment.
+function ArticleMedia({ article }: { article: NewsArticle }) {
+  if ((article.mediaType === 'online' || article.mediaType === 'blog' || article.mediaType === 'tv') && article.thumbnail) {
+    return (
+      <View style={styles.thumb}>
+        <Image source={article.thumbnail} style={styles.thumbImage} resizeMode="cover" />
+        {article.mediaType === 'tv' && (
+          <View style={styles.playBadge}>
+            <View style={styles.playBadgeCircle}>
+              <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+  if (article.mediaType === 'radio') return <AudioAttachment article={article} />;
+  if (PRINT_TYPES.has(article.mediaType)) return <DocumentAttachment article={article} />;
+  return null;
+}
 
 export function ArticleCard({ article, matchScore }: { article: NewsArticle; matchScore?: number }) {
   const { accentColor } = useAuth();
@@ -76,7 +101,7 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
               <View style={[styles.sentimentDot, { backgroundColor: SENTIMENT_DOT[article.sentiment] }]} />
             </View>
             <Text style={styles.subMeta} numberOfLines={1}>
-              {article.section} · {article.ago}
+              {MEDIA_TYPE_META[article.mediaType].label} · {article.author} · {article.ago}
             </Text>
           </View>
         </View>
@@ -85,14 +110,18 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
           {article.title}
         </Text>
 
+        <ArticleMedia article={article} />
+
         <View style={styles.metaRow}>
           <View style={styles.metrics}>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>SV</Text>
+              <Ionicons name="star-outline" size={13} color={cardPalette.textSecondary} />
               <Text style={styles.metricValue}>{article.storyValue.toFixed(2)}</Text>
             </View>
-            <View style={styles.metricDivider} />
-            <Text style={styles.ave}>{formatAve(article.ave)}</Text>
+            <View style={styles.metric}>
+              <Ionicons name="cash-outline" size={13} color={cardPalette.textSecondary} />
+              <Text style={styles.metricValue}>{formatAve(article.ave)}</Text>
+            </View>
           </View>
           {matchScore !== undefined && (
             <View style={styles.matchBlock}>
@@ -195,6 +224,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  thumb: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: Spacing.three,
+    backgroundColor: cardPalette.track,
+    overflow: 'hidden',
+  },
+  thumbImage: { width: '100%', height: '100%' },
+  playBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.22)',
+  },
+  playBadgeCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.55)',
+  },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   identity: { flex: 1, gap: 2 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -204,11 +259,8 @@ const styles = StyleSheet.create({
   headline: { fontSize: 16, fontWeight: '600', lineHeight: 22, color: cardPalette.text },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.one },
   metrics: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  metric: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  metricLabel: { fontSize: 11, fontWeight: '700', color: cardPalette.textSecondary },
-  metricValue: { fontSize: 14, fontWeight: '700', color: cardPalette.text },
-  metricDivider: { width: 1, height: 12, backgroundColor: cardPalette.border },
-  ave: { fontSize: 13, fontWeight: '600', color: cardPalette.textSecondary },
+  metric: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metricValue: { fontSize: 12, fontWeight: '600', color: cardPalette.textSecondary },
   matchBlock: { alignItems: 'flex-end', gap: 3 },
   matchText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
   matchTextMid: { color: '#D97706' },
