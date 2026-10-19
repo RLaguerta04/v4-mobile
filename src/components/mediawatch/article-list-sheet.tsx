@@ -14,7 +14,9 @@ import { ArticleCard } from '@/components/mediawatch/article-card';
 import { ArticleDetailModal } from '@/components/mediawatch/article-detail';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { compactAve } from '@/data/mediawatch-metrics';
 import type { ArticleSort } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
@@ -25,8 +27,6 @@ const SORTS: { value: ArticleSort; label: string }[] = [
   { value: 'value-high', label: 'Highest Value' },
   { value: 'value-low', label: 'Lowest Value' },
 ];
-
-const palette = { text: '#1A1A1A', textSecondary: '#6B7280', border: '#E7DDCC', card: '#FFFFFF', pill: '#F0EEEA' };
 
 function sortArticles(articles: NewsArticle[], sort: ArticleSort): NewsArticle[] {
   const arr = [...articles];
@@ -56,6 +56,8 @@ export function ArticleListSheet({
   articles: NewsArticle[];
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const listRef = useRef<FlatList>(null);
   const { visible: showTop, onScroll: onScrollTop } = useScrollToTop();
   const dismiss = useDismissGesture(onClose);
@@ -91,14 +93,14 @@ export function ArticleListSheet({
               accessibilityRole="button"
               accessibilityLabel="Table view"
               style={[styles.viewBtn, view === 'table' && styles.viewBtnOn]}>
-              <Ionicons name="grid-outline" size={15} color={view === 'table' ? '#FFFFFF' : palette.textSecondary} />
+              <Ionicons name="grid-outline" size={15} color={view === 'table' ? '#FFFFFF' : theme.textSecondary} />
             </Pressable>
             <Pressable
               onPress={() => setView('cards')}
               accessibilityRole="button"
               accessibilityLabel="Card view"
               style={[styles.viewBtn, view === 'cards' && styles.viewBtnOn]}>
-              <Ionicons name="albums-outline" size={15} color={view === 'cards' ? '#FFFFFF' : palette.textSecondary} />
+              <Ionicons name="albums-outline" size={15} color={view === 'cards' ? '#FFFFFF' : theme.textSecondary} />
             </Pressable>
           </View>
           <Pressable onPress={exportList} accessibilityRole="button" style={styles.exportBtn}>
@@ -182,38 +184,38 @@ export function ArticleListSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FAF8F4' },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.surfaceWarm },
   fill: { flex: 1 },
   body: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: Spacing.six },
   tableBody: { paddingBottom: Spacing.six },
-  subtitle: { fontSize: 13, color: palette.textSecondary, marginBottom: Spacing.two },
-  separator: { height: Spacing.three, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, marginBottom: Spacing.three },
-  empty: { textAlign: 'center', color: '#8A8580', paddingVertical: Spacing.six },
+  subtitle: { fontSize: 13, color: t.textSecondary, marginBottom: Spacing.two },
+  separator: { height: Spacing.three, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border, marginBottom: Spacing.three },
+  empty: { textAlign: 'center', color: t.textSecondary, paddingVertical: Spacing.six },
 
   // Toolbar
   toolbar: { paddingHorizontal: Spacing.three, paddingTop: Spacing.one, paddingBottom: Spacing.two, gap: Spacing.two },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   sortRow: { gap: Spacing.one, paddingRight: Spacing.two },
-  sortChip: { paddingHorizontal: Spacing.two + 2, paddingVertical: 5, borderRadius: 999, backgroundColor: palette.pill },
-  sortChipOn: { backgroundColor: '#1A1A1A' },
-  sortText: { fontSize: 12, fontWeight: '600', color: palette.textSecondary },
+  sortChip: { paddingHorizontal: Spacing.two + 2, paddingVertical: 5, borderRadius: 999, backgroundColor: t.topicBg },
+  sortChipOn: { backgroundColor: t.inverse },
+  sortText: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
   sortTextOn: { color: '#FFFFFF' },
   toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginLeft: 'auto' },
-  viewToggle: { flexDirection: 'row', borderRadius: 8, backgroundColor: palette.pill, padding: 2, gap: 2 },
+  viewToggle: { flexDirection: 'row', borderRadius: 8, backgroundColor: t.topicBg, padding: 2, gap: 2 },
   viewBtn: { width: 30, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  viewBtnOn: { backgroundColor: '#1A1A1A' },
-  exportBtn: { paddingHorizontal: Spacing.two + 2, paddingVertical: 6, borderRadius: 8, backgroundColor: '#1A1A1A' },
+  viewBtnOn: { backgroundColor: t.inverse },
+  exportBtn: { paddingHorizontal: Spacing.two + 2, paddingVertical: 6, borderRadius: 8, backgroundColor: t.inverse },
   exportText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
 
   // Table
-  thead: { borderBottomWidth: 1, borderBottomColor: palette.border, backgroundColor: '#F2F1ED' },
-  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.two, paddingHorizontal: Spacing.three, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, gap: Spacing.two },
-  trPressed: { backgroundColor: '#F7F5F0' },
-  th: { fontSize: 10, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  td: { fontSize: 12, color: palette.text },
+  thead: { borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.topicBg },
+  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.two, paddingHorizontal: Spacing.three, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border, gap: Spacing.two },
+  trPressed: { backgroundColor: t.elevated },
+  th: { fontSize: 10, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  td: { fontSize: 12, color: t.text },
   tdStrong: { fontWeight: '700' },
-  tdAve: { fontWeight: '600', color: '#16A34A' },
+  tdAve: { fontWeight: '600', color: t.positive },
   cSv: { width: 72 },
   cAve: { width: 72 },
   cHl: { width: 220 },
@@ -222,5 +224,5 @@ const styles = StyleSheet.create({
   cDate: { width: 104 },
   sentCell: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sentDot: { width: 7, height: 7, borderRadius: 3.5 },
-  sentText: { fontSize: 12, color: palette.text, textTransform: 'capitalize' },
+  sentText: { fontSize: 12, color: t.text, textTransform: 'capitalize' },
 });

@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MediaMeterColors, Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { MediaMeterColors, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { cloneFilters, SavedFilter, useSavedFilters } from '@/contexts/saved-filters-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { socialMentions } from '@/data/sample-data';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import { SocialMention, SocialPlatform } from '@/data/types';
@@ -136,17 +137,6 @@ export function sortMentions(mentions: SocialMention[], sortOrder: SortOrder): S
   }
 }
 
-const palette = {
-  sheetBg: '#FFFFFF',
-  pillBg: '#F0F0F0',
-  pillText: '#1A1A1A',
-  pillSelectedBg: '#1A1A1A',
-  pillSelectedText: '#FFFFFF',
-  sectionLabel: '#6B7280',
-  border: '#E4E6EA',
-  rangeHighlight: MediaMeterColors.pastelLilac,
-};
-
 const QUICK_RANGES: { label: string; days: number }[] = [
   { label: '7D', days: 7 },
   { label: '1M', days: 30 },
@@ -197,7 +187,8 @@ function Pill({
   active: boolean;
   onPress: () => void;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const accentColor = useAccentColor();
   return (
     <Pressable
       onPress={onPress}
@@ -210,10 +201,12 @@ function Pill({
 }
 
 function SectionLabel({ children }: { children: string }) {
+  const styles = useThemedStyles(makeStyles);
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
 function KeywordGroup({ label, words, excluded }: { label: string; words: string[]; excluded?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.keywordGroup}>
       <Text style={styles.keywordGroupLabel}>{label}</Text>
@@ -241,7 +234,8 @@ function CalendarGrid({
   end: Date | null;
   onSelectDay: (day: Date) => void;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const accentColor = useAccentColor();
   const firstOfMonth = new Date(viewYear, viewMonth, 1);
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const leadingBlanks = firstOfMonth.getDay();
@@ -312,8 +306,10 @@ export function MentionsFiltersSheet({
   // aggregates data and keeps Sort by to just Newest/Oldest.
   showMetricSort?: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const { saved, saveFilter, removeFilter } = useSavedFilters();
   const [pending, setPending] = useState<MentionsFilters>(initialFilters);
   const [viewDate, setViewDate] = useState(() => initialFilters.dateRange.start ?? latestMentionDate());
@@ -466,7 +462,7 @@ export function MentionsFiltersSheet({
             accessibilityRole="button"
             accessibilityLabel="Close filters"
             style={styles.closeButton}>
-            <Ionicons name="close" size={18} color={palette.pillText} />
+            <Ionicons name="close" size={18} color={theme.text} />
           </Pressable>
         </View>
 
@@ -494,7 +490,7 @@ export function MentionsFiltersSheet({
                   accessibilityRole="button"
                   accessibilityLabel={`Delete filter ${sf.name}`}
                   style={styles.savedChipClose}>
-                  <Ionicons name="close" size={13} color={palette.sectionLabel} />
+                  <Ionicons name="close" size={13} color={theme.textSecondary} />
                 </Pressable>
               </View>
             ))}
@@ -503,7 +499,7 @@ export function MentionsFiltersSheet({
               accessibilityRole="button"
               accessibilityLabel="Save current filter"
               style={styles.saveChip}>
-              <Ionicons name="add" size={15} color={palette.pillText} />
+              <Ionicons name="add" size={15} color={theme.text} />
               <Text style={styles.saveChipText}>Save current</Text>
             </Pressable>
           </View>
@@ -513,7 +509,7 @@ export function MentionsFiltersSheet({
                 value={nameInput}
                 onChangeText={setNameInput}
                 placeholder="Name this filter"
-                placeholderTextColor={palette.sectionLabel}
+                placeholderTextColor={theme.textSecondary}
                 style={styles.saveInput}
                 autoFocus
                 returnKeyType="done"
@@ -531,7 +527,7 @@ export function MentionsFiltersSheet({
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
                 style={styles.saveCancel}>
-                <Ionicons name="close" size={16} color={palette.sectionLabel} />
+                <Ionicons name="close" size={16} color={theme.textSecondary} />
               </Pressable>
             </View>
           )}
@@ -616,7 +612,7 @@ export function MentionsFiltersSheet({
                     <Ionicons
                       name={expanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
-                      color={palette.sectionLabel}
+                      color={theme.textSecondary}
                     />
                   </Pressable>
                   {expanded && (
@@ -636,7 +632,7 @@ export function MentionsFiltersSheet({
                                 <Ionicons
                                   name={keywordsShown ? 'chevron-up' : 'pricetags-outline'}
                                   size={16}
-                                  color={palette.sectionLabel}
+                                  color={theme.textSecondary}
                                 />
                               </Pressable>
                               <Pressable
@@ -654,7 +650,7 @@ export function MentionsFiltersSheet({
                                 <Ionicons
                                   name={active ? 'radio-button-on' : 'radio-button-off'}
                                   size={18}
-                                  color={active ? accentColor : palette.sectionLabel}
+                                  color={active ? accentColor : theme.textSecondary}
                                 />
                               </Pressable>
                             </View>
@@ -707,13 +703,13 @@ export function MentionsFiltersSheet({
             <View style={styles.calendarCard}>
               <View style={styles.calendarHeader}>
                 <Pressable onPress={() => changeMonth(-1)} hitSlop={8}>
-                  <Ionicons name="chevron-back" size={18} color={palette.pillText} />
+                  <Ionicons name="chevron-back" size={18} color={theme.text} />
                 </Pressable>
                 <Text style={styles.calendarHeaderText}>
                   {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
                 </Text>
                 <Pressable onPress={() => changeMonth(1)} hitSlop={8}>
-                  <Ionicons name="chevron-forward" size={18} color={palette.pillText} />
+                  <Ionicons name="chevron-forward" size={18} color={theme.text} />
                 </Pressable>
               </View>
               <CalendarGrid
@@ -749,14 +745,14 @@ export function MentionsFiltersSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   sheet: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: palette.sheetBg,
+    backgroundColor: t.card,
     borderTopLeftRadius: Spacing.four,
     borderTopRightRadius: Spacing.four,
     overflow: 'hidden',
@@ -771,13 +767,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: palette.pillText,
+    color: t.text,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -791,7 +787,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.sectionLabel,
+    color: t.textSecondary,
     marginTop: Spacing.three,
     marginBottom: Spacing.one,
   },
@@ -804,29 +800,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + 2,
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
   },
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: palette.pillText,
+    color: t.text,
   },
   pillTextActive: {
-    color: palette.pillSelectedText,
+    // White label on the accent-filled active pill — fixed across schemes.
+    color: '#FFFFFF',
   },
   rangeSummary: {
     marginTop: Spacing.two,
     fontSize: 13,
     fontWeight: '600',
-    color: palette.pillText,
+    color: t.text,
   },
   treeList: {
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: t.borderCool,
   },
   treeCategoryDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   treeCategoryRow: {
     flexDirection: 'row',
@@ -841,11 +838,11 @@ const styles = StyleSheet.create({
   treeCategoryText: {
     fontSize: 14,
     fontWeight: '700',
-    color: palette.pillText,
+    color: t.text,
   },
   treeCategorySubtitle: {
     fontSize: 13,
-    color: palette.sectionLabel,
+    color: t.textSecondary,
   },
   treeBucketList: {
     paddingBottom: Spacing.two,
@@ -865,7 +862,7 @@ const styles = StyleSheet.create({
   },
   treeBucketText: {
     fontSize: 14,
-    color: palette.pillText,
+    color: t.text,
   },
   keywordPanel: {
     marginLeft: Spacing.three + 16 + Spacing.two,
@@ -878,7 +875,7 @@ const styles = StyleSheet.create({
   keywordGroupLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: palette.sectionLabel,
+    color: t.textSecondary,
     textTransform: 'uppercase',
   },
   keywordChipRow: {
@@ -890,7 +887,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
   },
   keywordChipExcluded: {
     backgroundColor: '#FBE9E7',
@@ -898,7 +895,7 @@ const styles = StyleSheet.create({
   keywordChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: palette.pillText,
+    color: t.text,
   },
   keywordChipTextExcluded: {
     color: '#B0463C',
@@ -907,14 +904,14 @@ const styles = StyleSheet.create({
   keywordEmptyText: {
     fontSize: 12,
     fontStyle: 'italic',
-    color: palette.sectionLabel,
+    color: t.textSecondary,
   },
   calendarCard: {
     marginTop: Spacing.two,
     padding: Spacing.two,
     borderRadius: Spacing.three,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -925,7 +922,7 @@ const styles = StyleSheet.create({
   calendarHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: palette.pillText,
+    color: t.text,
   },
   calendarWeekRow: {
     flexDirection: 'row',
@@ -935,7 +932,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '600',
-    color: palette.sectionLabel,
+    color: t.textSecondary,
     paddingVertical: Spacing.one,
   },
   calendarCell: {
@@ -946,12 +943,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   calendarCellInRange: {
-    backgroundColor: palette.rangeHighlight,
+    // Fixed pastel-lilac range highlight (self-contained; reads on both schemes).
+    backgroundColor: MediaMeterColors.pastelLilac,
     borderRadius: 0,
   },
   calendarCellText: {
     fontSize: 13,
-    color: palette.pillText,
+    color: t.text,
   },
   calendarCellTextSelected: {
     color: '#FFFFFF',
@@ -962,7 +960,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingTop: Spacing.two,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: t.borderCool,
   },
   resetButton: {
     flex: 1,
@@ -970,12 +968,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Spacing.three,
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
   },
   resetButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.pillText,
+    color: t.text,
   },
   applyButton: {
     flex: 2,
@@ -983,7 +981,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Spacing.three,
     borderRadius: 999,
-    backgroundColor: palette.pillSelectedBg,
+    // Always overridden inline by the view accent; this is just a safe base.
+    backgroundColor: t.text,
   },
   applyButtonText: {
     fontSize: 15,
@@ -994,7 +993,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
     paddingLeft: Spacing.two + 2,
     paddingRight: 2,
   },
@@ -1008,7 +1007,7 @@ const styles = StyleSheet.create({
   savedChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.pillText,
+    color: t.text,
   },
   savedChipClose: {
     width: 22,
@@ -1022,7 +1021,7 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderStyle: 'dashed',
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.one + 2,
@@ -1030,7 +1029,7 @@ const styles = StyleSheet.create({
   saveChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.pillText,
+    color: t.text,
   },
   saveRow: {
     flexDirection: 'row',
@@ -1041,12 +1040,12 @@ const styles = StyleSheet.create({
   saveInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
     fontSize: 14,
-    color: palette.pillText,
+    color: t.text,
   },
   saveConfirm: {
     paddingHorizontal: Spacing.three,

@@ -4,15 +4,16 @@ import {
   InterTight_700Bold,
 } from '@expo-google-fonts/inter-tight';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { LoginScreen } from '@/components/login-screen';
 import { ViewSelectionScreen } from '@/components/view-selection-screen';
+import { AdWatchTrackerProvider } from '@/contexts/adwatch-tracker-context';
 import { ArticleSavedFiltersProvider } from '@/contexts/article-saved-filters-context';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { BookmarksProvider } from '@/contexts/bookmarks-context';
@@ -22,6 +23,7 @@ import { SavedArticlesProvider } from '@/contexts/saved-articles-context';
 import { SavedFiltersProvider } from '@/contexts/saved-filters-context';
 import { SocialTrackerProvider } from '@/contexts/social-tracker-context';
 import { TabBarVisibilityProvider } from '@/contexts/tab-bar-visibility-context';
+import { ThemeProvider, useThemeMode } from '@/contexts/theme-context';
 import { TrackerProvider } from '@/contexts/tracker-context';
 
 SplashScreen.preventAutoHideAsync();
@@ -40,13 +42,15 @@ function RootContent() {
           <SavedArticlesProvider>
             <TrackerProvider>
               <MediaWatchTrackerProvider>
-                <SocialTrackerProvider>
-                  <SavedFiltersProvider>
-                    <ArticleSavedFiltersProvider>
-                      <AppTabs />
-                    </ArticleSavedFiltersProvider>
-                  </SavedFiltersProvider>
-                </SocialTrackerProvider>
+                <AdWatchTrackerProvider>
+                  <SocialTrackerProvider>
+                    <SavedFiltersProvider>
+                      <ArticleSavedFiltersProvider>
+                        <AppTabs />
+                      </ArticleSavedFiltersProvider>
+                    </SavedFiltersProvider>
+                  </SocialTrackerProvider>
+                </AdWatchTrackerProvider>
               </MediaWatchTrackerProvider>
             </TrackerProvider>
           </SavedArticlesProvider>
@@ -56,8 +60,24 @@ function RootContent() {
   );
 }
 
+// Bridges our resolved scheme into the things that live outside the token
+// system: React Navigation's theme (used by native headers/containers) and
+// the status-bar icon color. Both must read the context, so this sits inside
+// the ThemeProvider.
+function ThemedChrome() {
+  const { isDark } = useThemeMode();
+  return (
+    <NavThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <AnimatedSplashOverlay />
+      <AuthProvider>
+        <RootContent />
+      </AuthProvider>
+    </NavThemeProvider>
+  );
+}
+
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -74,11 +94,8 @@ export default function TabLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <AuthProvider>
-          <RootContent />
-        </AuthProvider>
+      <ThemeProvider>
+        <ThemedChrome />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

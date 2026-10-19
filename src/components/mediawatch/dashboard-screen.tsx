@@ -22,9 +22,11 @@ import { ArticleListSheet } from '@/components/mediawatch/article-list-sheet';
 import { ChannelCards } from '@/components/mediawatch/channel-cards';
 import { CompareSheet } from '@/components/mediawatch/compare-sheet';
 import { MEDIA_TYPE_META } from '@/components/mediawatch/article-ui';
-import { BottomTabInset, Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace } from '@/data/article-workspace';
 import {
   articleEmphasis,
   buildArticleKpis,
@@ -43,23 +45,21 @@ import {
   buildTopPublishers,
 } from '@/data/article-dashboard-metrics';
 import { ArticleInsightKind, buildArticleInsightReport } from '@/data/article-insights';
-import { newsArticles } from '@/data/mediawatch-articles';
-import { mediaChannel } from '@/data/mediawatch-metrics';
-import type { MediaChannel, NewsArticle } from '@/data/mediawatch-types';
+import type { NewsArticle } from '@/data/mediawatch-types';
 import type { Sentiment } from '@/data/types';
-
-const palette = { background: '#F5F4F0', text: '#1A1A1A', textSecondary: '#6B7280', pillBg: '#F0EEEA' };
-const CHANNELS: (MediaChannel | 'All')[] = ['All', 'Online', 'TV', 'Print', 'Radio'];
 
 type Explore = { title: string; subtitle?: string; articles: NewsArticle[] };
 
 export function MediaWatchDashboard() {
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const ws = useArticleWorkspace();
   const { hideProgress, onScroll: onHideScroll } = useHideOnScroll();
   const { visible: showTop, onScroll: onScrollTop } = useScrollToTop();
   const scrollRef = useRef<ScrollView>(null);
   const [headerH, setHeaderH] = useState(120);
-  const [channel, setChannel] = useState<MediaChannel | 'All'>('All');
+  const [channel, setChannel] = useState<string>('All');
   const [tlRange, setTlRange] = useState<number>(7);
   const [pubTab, setPubTab] = useState<'bubble' | 'bar'>('bubble');
   const [authorTab, setAuthorTab] = useState<'bubble' | 'bar'>('bubble');
@@ -67,12 +67,27 @@ export function MediaWatchDashboard() {
   const [insightKind, setInsightKind] = useState<ArticleInsightKind | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
 
-  const articles = useMemo(
-    () => (channel === 'All' ? newsArticles : newsArticles.filter((a) => mediaChannel(a.mediaType) === channel)),
-    [channel],
-  );
+  const articles = useMemo(() => {
+    if (channel === 'All') return ws.articles;
+    const ch = ws.channels.find((c) => c.label === channel);
+    return ch ? ws.articles.filter((a) => ch.types.includes(a.mediaType)) : ws.articles;
+  }, [channel, ws.articles, ws.channels]);
 
-  const kpis = useMemo(() => buildArticleKpis(articles), [articles]);
+  const kpis = useMemo(
+    () =>
+      buildArticleKpis(articles, {
+        accent: ws.accent,
+        channels: ws.channels,
+        noun: ws.noun,
+        // AdWatch landing shows the web's four KPIs; MediaWatch shows the full
+        // set minus Total AVE (intentionally hidden — the 'ave' builder is kept
+        // so it can be restored by adding it back here).
+        include: ws.minimalDashboard
+          ? ['total', 'channel', 'pub', 'section']
+          : ['total', 'channel', 'pub', 'author', 'day', 'section', 'sent', 'entity'],
+      }),
+    [articles, ws.accent, ws.channels, ws.noun, ws.minimalDashboard],
+  );
   const timeline = useMemo(() => buildArticleTimeline(articles), [articles]);
   const timelineView = useMemo(() => timeline.slice(-tlRange), [timeline, tlRange]);
   const exposure = useMemo(() => buildMediaExposure(articles), [articles]);
@@ -123,8 +138,10 @@ export function MediaWatchDashboard() {
         return openExplore({ title: name, articles: articles.filter((a) => a.outlet === name) });
       case 'author':
         return openExplore({ title: name, articles: articles.filter((a) => a.author === name) });
-      case 'channel':
-        return openExplore({ title: `${name} coverage`, articles: articles.filter((a) => mediaChannel(a.mediaType) === name) });
+      case 'channel': {
+        const ch = ws.channels.find((c) => c.label === name);
+        return openExplore({ title: `${name} ${ws.nouns}`, articles: ch ? articles.filter((a) => ch.types.includes(a.mediaType)) : [] });
+      }
       case 'section':
         return openExplore({ title: name, articles: articles.filter((a) => a.section === name) });
       case 'sent':
@@ -142,7 +159,7 @@ export function MediaWatchDashboard() {
   // On mobile it shares a text snapshot of the dashboard's headline figures.
   function exportDashboard() {
     const lines = [
-      `MediaWatch Dashboard — ${channel === 'All' ? 'All media' : channel}`,
+      `${ws.view} Dashboard — ${channel === 'All' ? 'All media' : channel}`,
       '',
       ...kpis.map((k) => `${k.label}: ${k.value}${k.detail ? ` (${k.detail})` : ''}`),
       '',
@@ -160,27 +177,30 @@ export function MediaWatchDashboard() {
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
         <CollapsibleHeader progress={hideProgress} onHeightChange={setHeaderH}>
           <View style={[styles.header, styles.headerRow]}>
-            <PageHeading title="Dashboard" description="Coverage analytics" count={total} />
+            <PageHeading title="Dashboard" description={ws.adMode ? 'Ad analytics' : 'Coverage analytics'} count={total} />
             <View style={styles.headerBtns}>
               <Pressable
                 onPress={exportDashboard}
                 accessibilityRole="button"
                 accessibilityLabel="Export dashboard"
                 style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="share-outline" size={16} color="#1A1A1A" />
+                <Ionicons name="share-outline" size={16} color={theme.text} />
               </Pressable>
-              <Pressable
-                onPress={() => setCompareOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Compare categories"
-                style={({ pressed }) => [styles.compareBtn, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="git-compare-outline" size={15} color="#FFFFFF" />
-                <Text style={styles.compareBtnText}>Compare</Text>
-              </Pressable>
+              {/* Compare is a MediaWatch feature; AdWatch's landing is minimal. */}
+              {!ws.minimalDashboard && (
+                <Pressable
+                  onPress={() => setCompareOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Compare categories"
+                  style={({ pressed }) => [styles.compareBtn, pressed && { opacity: 0.7 }]}>
+                  <Ionicons name="git-compare-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.compareBtnText}>Compare</Text>
+                </Pressable>
+              )}
             </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {CHANNELS.map((ch) => {
+            {['All', ...ws.channels.map((c) => c.label)].map((ch) => {
               const on = ch === channel;
               return (
                 <Pressable
@@ -207,7 +227,7 @@ export function MediaWatchDashboard() {
           scrollEventThrottle={16}>
           <KpiGrid cards={kpis} onCardPress={(c) => exploreKpi(c.key)} />
 
-          <DbCard title="Timeline" onInsights={() => setInsightKind('timeline')} onExplore={() => exploreKpi('total')}>
+          <DbCard title={ws.timelineTitle} onInsights={() => setInsightKind('timeline')} onExplore={() => exploreKpi('total')}>
             <RangeToggle
               options={[
                 { label: '3D', value: 3 },
@@ -229,6 +249,10 @@ export function MediaWatchDashboard() {
             />
           </DbCard>
 
+          {/* AdWatch's landing dashboard stops here (KPIs + the Ad Spend
+              timeline); MediaWatch continues with its full chart set below. */}
+          {!ws.minimalDashboard && (
+          <>
           <DbCard
             title="Media Exposure"
             onInsights={() => setInsightKind('exposure')}
@@ -268,10 +292,20 @@ export function MediaWatchDashboard() {
             />
           </DbCard>
 
+          {/* Web parity (#db-tonality-card): one "Tonality Distribution" card =
+              percentage legend + donut + stacked time-bar. Side-by-side on the
+              web; stacked vertically here so each chart stays legible on a phone. */}
           <DbCard
-            title="Tonality"
+            title="Tonality Distribution"
             onInsights={() => setInsightKind('tonality')}
-            onExplore={() => openExplore({ title: 'Tonality', articles })}>
+            onExplore={() => openExplore({ title: 'Tonality Distribution', articles })}>
+            <Legend
+              items={donut.map((s) => ({
+                label: s.label,
+                color: s.color,
+                note: `${((s.value / (total || 1)) * 100).toFixed(1)}% (${s.value})`,
+              }))}
+            />
             <View style={styles.donutWrap}>
               <ChartArea height={180}>
                 {() => (
@@ -285,24 +319,10 @@ export function MediaWatchDashboard() {
                 )}
               </ChartArea>
             </View>
-            <Legend items={donut.map((s) => ({ label: s.label, color: s.color, note: String(s.value) }))} />
-          </DbCard>
-
-          {tonalityWeeks.length > 0 && (
-            <DbCard
-              title="Tonality over time"
-              onInsights={() => setInsightKind('tonality')}
-              onExplore={() => openExplore({ title: 'Tonality over time', articles })}>
+            {tonalityWeeks.length > 0 && (
               <ChartArea height={220}>{(w) => <StackedTimeBar data={tonalityWeeks} width={w} height={220} />}</ChartArea>
-              <Legend
-                items={[
-                  { label: 'Positive', color: donut[0].color },
-                  { label: 'Neutral', color: donut[1].color },
-                  { label: 'Negative', color: donut[2].color },
-                ]}
-              />
-            </DbCard>
-          )}
+            )}
+          </DbCard>
 
           <DbCard
             title="Story Value Distribution"
@@ -415,6 +435,8 @@ export function MediaWatchDashboard() {
             <EntitiesTreemap tiles={entities} onSelect={(i) => exploreKpi(`entity:${entities[i].name}`)} />
             <Legend items={entities.map((e) => ({ label: e.name, color: e.color }))} />
           </DbCard>
+          </>
+          )}
         </ScrollView>
 
         <BackToTop visible={showTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} bottomOffset={-16} />
@@ -435,8 +457,8 @@ export function MediaWatchDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.background },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   safeArea: { flex: 1 },
   header: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: Spacing.two },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
@@ -448,14 +470,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E4E6EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: t.borderCool,
+    backgroundColor: t.card,
   },
+  // Dark primary "Compare" button — intentionally a near-black fill with white
+  // text in both schemes (no inverse-button token exists); kept literal.
   compareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.inverse,
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: 7,
@@ -463,14 +487,15 @@ const styles = StyleSheet.create({
   },
   compareBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   chipRow: { paddingHorizontal: Spacing.three, gap: Spacing.one, paddingBottom: Spacing.three },
-  chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: 999, backgroundColor: palette.pillBg },
-  chipText: { fontSize: 13, fontWeight: '600', color: palette.text },
+  chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: 999, backgroundColor: t.topicBg },
+  chipText: { fontSize: 13, fontWeight: '600', color: t.text },
   chipTextOn: { color: '#FFFFFF' },
   body: { paddingHorizontal: Spacing.three, paddingBottom: BottomTabInset + Spacing.three, gap: Spacing.three },
   donutWrap: { alignItems: 'center' },
   tabRow: { flexDirection: 'row', gap: Spacing.one, marginBottom: Spacing.one },
-  tab: { paddingHorizontal: Spacing.three, paddingVertical: 6, borderRadius: 999, backgroundColor: '#F2F1ED' },
-  tabOn: { backgroundColor: '#1A1A1A' },
-  tabText: { fontSize: 12, fontWeight: '600', color: palette.textSecondary },
+  tab: { paddingHorizontal: Spacing.three, paddingVertical: 6, borderRadius: 999, backgroundColor: t.topicBg },
+  // Active tab — near-black fill with white text in both schemes (no inverse token); kept literal.
+  tabOn: { backgroundColor: t.inverse },
+  tabText: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
   tabTextOn: { color: '#FFFFFF' },
 });

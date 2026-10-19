@@ -10,7 +10,6 @@ import { HBarList, HBarItem, ShareBar } from '@/components/dashboard/bars';
 import { ChartArea, DbCard, Legend } from '@/components/dashboard/chart-card';
 import { Donut, Histogram, ScatterPlot, StackedTimeBar } from '@/components/dashboard/charts';
 import {
-  chartTokens,
   PLATFORM_CHART_COLOR,
   PLATFORM_LABEL,
   SENTIMENT_COLOR,
@@ -28,7 +27,8 @@ import {
 } from '@/data/dashboard-metrics';
 import { influencers as INFLUENCERS } from '@/data/sample-data';
 import { SocialMention, SocialPlatform } from '@/data/types';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 export type ExploreKind =
   | 'total'
@@ -112,6 +112,7 @@ function InfluencerBubble({ ms, onDrill }: { ms: SocialMention[]; onDrill?: Dril
 // Per-platform post-count cards — the web drill-down's platform grid. Skipped
 // for a single-platform set (the "Most Dominant" drill-downs), as on the web.
 function PlatformGrid({ ms, onDrill }: { ms: SocialMention[]; onDrill?: Drill }) {
+  const styles = useThemedStyles(makeStyles);
   const exposure = buildExposure(ms);
   if (exposure.length <= 1) return null;
   return (
@@ -155,6 +156,7 @@ function influencerCardItems(
 }
 
 function InfluencerCards({ ms, onDrill }: { ms: SocialMention[]; onDrill?: Drill }) {
+  const styles = useThemedStyles(makeStyles);
   const items = influencerCardItems(ms);
   if (!items.length) return null;
   return (
@@ -191,6 +193,7 @@ export function ExploreHeader({
   platform?: SocialPlatform;
   onDrill?: Drill;
 }) {
+  const styles = useThemedStyles(makeStyles);
   switch (kind) {
     case 'total':
     case 'exposure': {
@@ -377,7 +380,7 @@ function FrequencyCard({ ms, title, onDrill }: { ms: SocialMention[]; title: str
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   stack: {
     gap: Spacing.three,
   },
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
   platCard: {
     width: '48%',
     flexGrow: 1,
-    backgroundColor: '#F4F2EC',
+    backgroundColor: t.topicBg,
     borderRadius: 10,
     padding: Spacing.two,
     gap: 2,
@@ -415,16 +418,16 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   platCount: {
     fontSize: 20,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
   platSub: {
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   infCardsRow: {
     gap: Spacing.two,
@@ -434,7 +437,7 @@ const styles = StyleSheet.create({
     width: 92,
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F4F2EC',
+    backgroundColor: t.topicBg,
     borderRadius: 10,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.one,
@@ -443,10 +446,10 @@ const styles = StyleSheet.create({
     maxWidth: 84,
     fontSize: 12,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   infCardMeta: {
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
 });

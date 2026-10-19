@@ -9,10 +9,11 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { cardPalette } from '@/components/detail-primitives';
 import { MEDIA_TYPE_META } from '@/components/mediawatch/article-ui';
 import { PdfFrame } from '@/components/mediawatch/pdf-frame';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import type { NewsArticle } from '@/data/mediawatch-types';
 import { resolveLocalUri, shareBroadsheetPdf } from '@/utils/broadsheet-pdf';
 
@@ -25,6 +26,8 @@ export function PdfPreviewModal({
   article: Pick<NewsArticle, 'pdfAttachment' | 'title'>;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [webviewLoading, setWebviewLoading] = useState(true);
@@ -56,7 +59,7 @@ export function PdfPreviewModal({
               accessibilityLabel="Open in another app"
               hitSlop={8}
               style={styles.headerButton}>
-              <Ionicons name="open-outline" size={20} color={cardPalette.text} />
+              <Ionicons name="open-outline" size={20} color={theme.text} />
             </Pressable>
             <Pressable
               onPress={onClose}
@@ -64,7 +67,7 @@ export function PdfPreviewModal({
               accessibilityLabel="Close preview"
               hitSlop={8}
               style={styles.headerButton}>
-              <Ionicons name="close" size={22} color={cardPalette.text} />
+              <Ionicons name="close" size={22} color={theme.text} />
             </Pressable>
           </View>
         </View>
@@ -72,7 +75,7 @@ export function PdfPreviewModal({
         <View style={styles.body}>
           {failed ? (
             <View style={styles.centered}>
-              <Ionicons name="document-text-outline" size={40} color={cardPalette.textSecondary} />
+              <Ionicons name="document-text-outline" size={40} color={theme.textSecondary} />
               <Text style={styles.failedText}>Couldn't preview this file in-app.</Text>
               <Pressable
                 onPress={() => shareBroadsheetPdf(article)}
@@ -93,7 +96,7 @@ export function PdfPreviewModal({
           )}
           {showSpinner && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={cardPalette.text} />
+              <ActivityIndicator size="large" color={theme.text} />
             </View>
           )}
         </View>
@@ -116,6 +119,8 @@ export function InlinePdfPreview({
   article: Pick<NewsArticle, 'pdfAttachment' | 'title' | 'page' | 'mediaType'>;
   onExpand: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -151,7 +156,7 @@ export function InlinePdfPreview({
           accessibilityLabel="Open in another app"
           hitSlop={8}
           style={styles.inlineToolbarButton}>
-          <Ionicons name="open-outline" size={16} color={cardPalette.textSecondary} />
+          <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
         </Pressable>
         <Pressable
           onPress={onExpand}
@@ -159,7 +164,7 @@ export function InlinePdfPreview({
           accessibilityLabel="Expand to full screen"
           hitSlop={8}
           style={styles.inlineToolbarButton}>
-          <Ionicons name="expand-outline" size={16} color={cardPalette.textSecondary} />
+          <Ionicons name="expand-outline" size={16} color={theme.textSecondary} />
         </Pressable>
       </View>
 
@@ -170,7 +175,7 @@ export function InlinePdfPreview({
             onPress={() => shareBroadsheetPdf(article)}
             accessibilityRole="button"
             accessibilityLabel="Open the broadsheet page">
-            <Ionicons name="document-text-outline" size={34} color={cardPalette.textSecondary} />
+            <Ionicons name="document-text-outline" size={34} color={theme.textSecondary} />
             <Text style={styles.inlineFallbackText}>Tap to open the broadsheet page</Text>
           </Pressable>
         ) : (
@@ -194,7 +199,7 @@ export function InlinePdfPreview({
             />
             {loading && (
               <View style={styles.inlineLoading}>
-                <ActivityIndicator color={cardPalette.text} />
+                <ActivityIndicator color={theme.text} />
               </View>
             )}
           </>
@@ -204,8 +209,8 @@ export function InlinePdfPreview({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: cardPalette.card },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.card },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -213,21 +218,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderBottomWidth: 1,
-    borderBottomColor: cardPalette.border,
+    borderBottomColor: t.border,
   },
-  title: { flex: 1, fontSize: 15, fontWeight: '700', color: cardPalette.text, marginRight: Spacing.two },
+  title: { flex: 1, fontSize: 15, fontWeight: '700', color: t.text, marginRight: Spacing.two },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   headerButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
   webview: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
-  failedText: { fontSize: 14, color: cardPalette.textSecondary, textAlign: 'center' },
+  failedText: { fontSize: 14, color: t.textSecondary, textAlign: 'center' },
+  // Dark primary "Open in…" button — near-black fill with white text in both schemes (no inverse-button token); kept literal.
   openExternalButton: {
     marginTop: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: 999,
-    backgroundColor: cardPalette.text,
+    backgroundColor: t.inverse,
   },
   openExternalButtonText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   loadingOverlay: {
@@ -238,16 +244,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: cardPalette.card,
+    backgroundColor: t.card,
   },
 
   // Inline embed (article detail)
   inlineCard: {
     borderWidth: 1,
-    borderColor: cardPalette.border,
+    borderColor: t.cardBorder,
     borderRadius: Spacing.three,
     overflow: 'hidden',
-    backgroundColor: cardPalette.card,
+    backgroundColor: t.card,
   },
   inlineToolbar: {
     flexDirection: 'row',
@@ -256,11 +262,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderBottomWidth: 1,
-    borderBottomColor: cardPalette.border,
+    borderBottomColor: t.border,
   },
-  inlineToolbarLabel: { flex: 1, fontSize: 12.5, fontWeight: '700', color: cardPalette.text },
+  inlineToolbarLabel: { flex: 1, fontSize: 12.5, fontWeight: '700', color: t.text },
   inlineToolbarButton: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
-  inlineViewport: { height: 440, backgroundColor: cardPalette.track },
+  inlineViewport: { height: 440, backgroundColor: t.track },
   inlineWebview: { flex: 1, backgroundColor: 'transparent' },
   inlineLoading: {
     position: 'absolute',
@@ -272,5 +278,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inlineFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
-  inlineFallbackText: { fontSize: 13, color: cardPalette.textSecondary, textAlign: 'center' },
+  inlineFallbackText: { fontSize: 13, color: t.textSecondary, textAlign: 'center' },
 });

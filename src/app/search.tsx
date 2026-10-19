@@ -21,12 +21,15 @@ import { InfluencerDetailModal } from '@/components/influencer-detail-modal';
 import { MediaWatchSearch } from '@/components/mediawatch/search-screen';
 import { MentionCard } from '@/components/mention-card';
 import { PageHeading } from '@/components/page-heading';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useAuth } from '@/contexts/auth-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
 import { useTrackerActivities } from '@/contexts/tracker-context';
+import { isArticleView } from '@/data/article-workspace';
 import { trackerActivities } from '@/data/sample-data';
 import {
   globalSearch,
@@ -39,15 +42,6 @@ import { buildInfluencers, Influencer } from '@/utils/influencers';
 import { ResolvedActivity, resolveActivity } from '@/utils/metrics';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-  chipBg: '#EDE6D8',
-};
 
 const TYPE_META: Record<SearchResultType, { label: string; icon: IoniconName; color: string }> = {
   post: { label: 'Posts', icon: 'chatbubble-ellipses', color: '#2563EB' },
@@ -68,16 +62,18 @@ const PREVIEW_LIMIT: Record<SearchResultType, number> = {
   trending: 3,
 };
 
-// Route dispatcher: MediaWatch searches the article corpus; others keep the
-// SharedView global search below.
+// Route dispatcher: the article workspaces (MediaWatch news, AdWatch ads) search
+// the article corpus; others keep the SharedView global search below.
 export default function SearchRoute() {
   const { activeView } = useAuth();
-  return activeView === 'MediaWatch' ? <MediaWatchSearch /> : <SharedViewSearch />;
+  return isArticleView(activeView) ? <MediaWatchSearch /> : <SharedViewSearch />;
 }
 
 function SharedViewSearch() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const router = useRouter();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const { isSaved, toggleSave } = useBookmarks();
   const { userActivities } = useTrackerActivities();
   const { folders, folderOfUrl } = useSavedArticles();
@@ -175,12 +171,12 @@ function SharedViewSearch() {
             <PageHeading title="Search" description="Find anything across the app" />
           </View>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={palette.textSecondary} />
+            <Ionicons name="search" size={18} color={theme.textSecondary} />
             <TextInput
               value={query}
               onChangeText={changeQuery}
               placeholder="Posts, influencers, categories, activities…"
-              placeholderTextColor={palette.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               style={styles.input}
               autoCapitalize="none"
               autoCorrect={false}
@@ -193,7 +189,7 @@ function SharedViewSearch() {
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Clear search">
-                <Ionicons name="close-circle" size={18} color={palette.textSecondary} />
+                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
               </Pressable>
             )}
           </View>
@@ -242,7 +238,7 @@ function SharedViewSearch() {
             />
           ) : results.length === 0 ? (
             <View style={styles.emptyWrap}>
-              <Ionicons name="search" size={30} color={palette.textSecondary} />
+              <Ionicons name="search" size={30} color={theme.textSecondary} />
               <Text style={styles.emptyText}>No results for “{query.trim()}”.</Text>
               <Text style={styles.emptyHint}>Try a shorter or different keyword.</Text>
             </View>
@@ -298,6 +294,7 @@ function TypeChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -324,7 +321,7 @@ function Highlight({
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
 }) {
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const q = query.trim().toLowerCase();
   const i = q ? text.toLowerCase().indexOf(q) : -1;
   if (i < 0) {
@@ -352,6 +349,8 @@ function ResultRow({
   query: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const meta = TYPE_META[result.type];
   return (
     <Pressable
@@ -372,7 +371,7 @@ function ResultRow({
           {result.subtitle}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={palette.textSecondary} />
+      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
     </Pressable>
   );
 }
@@ -390,6 +389,8 @@ function InitialState({
   onRemove: (q: string) => void;
   onClearRecent: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   // Recent searches replace the suggestions once there's any history.
   if (recent.length > 0) {
     return (
@@ -408,7 +409,7 @@ function InitialState({
                 accessibilityRole="button"
                 accessibilityLabel={`Search ${r}`}
                 style={({ pressed }) => [styles.recentMain, pressed && styles.pressed]}>
-                <Ionicons name="time-outline" size={16} color={palette.textSecondary} />
+                <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
                 <Text style={styles.recentText} numberOfLines={1}>
                   {r}
                 </Text>
@@ -419,7 +420,7 @@ function InitialState({
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${r} from recent searches`}
                 style={({ pressed }) => [styles.recentRemove, pressed && styles.pressed]}>
-                <Ionicons name="close" size={16} color={palette.textSecondary} />
+                <Ionicons name="close" size={16} color={theme.textSecondary} />
               </Pressable>
             </View>
           ))}
@@ -438,7 +439,7 @@ function InitialState({
             onPress={() => onPick(s)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.suggestChip, pressed && styles.pressed]}>
-            <Ionicons name="sparkles-outline" size={13} color={palette.textSecondary} />
+            <Ionicons name="sparkles-outline" size={13} color={theme.textSecondary} />
             <Text style={styles.suggestText}>{s}</Text>
           </Pressable>
         ))}
@@ -450,10 +451,10 @@ function InitialState({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -475,14 +476,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     height: 44,
     borderRadius: Spacing.three,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   chipRow: {
     gap: Spacing.one + 2,
@@ -497,18 +498,18 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
   },
   chipActive: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
+    backgroundColor: t.inverse,
+    borderColor: t.inverse,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   chipTextActive: {
     color: '#FFFFFF',
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 999,
-    backgroundColor: palette.chipBg,
+    backgroundColor: t.track,
     alignItems: 'center',
   },
   chipCountActive: {
@@ -527,7 +528,7 @@ const styles = StyleSheet.create({
   chipCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   chipCountTextActive: {
     color: '#FFFFFF',
@@ -549,7 +550,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -583,9 +584,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two + 2,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorder,
     borderRadius: 14,
   },
   rowIcon: {
@@ -602,11 +603,11 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   rowSub: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   pressed: {
     opacity: 0.6,
@@ -620,11 +621,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   emptyHint: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   initial: {
@@ -634,7 +635,7 @@ const styles = StyleSheet.create({
   initialLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -650,14 +651,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + 3,
     borderRadius: 999,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
   },
   suggestText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   recentBlock: {
     gap: Spacing.one,
@@ -670,7 +671,7 @@ const styles = StyleSheet.create({
   clearText: {
     fontSize: 12,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   recentRow: {
     flexDirection: 'row',
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
   recentText: {
     flex: 1,
     fontSize: 14,
-    color: palette.text,
+    color: t.text,
   },
   recentRemove: {
     width: 32,
@@ -697,7 +698,7 @@ const styles = StyleSheet.create({
   initialHint: {
     fontSize: 13,
     lineHeight: 19,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     marginTop: Spacing.two,
   },
 });

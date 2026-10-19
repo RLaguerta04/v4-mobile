@@ -2,15 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useAuth } from '@/contexts/auth-context';
+import { Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
-
-const palette = {
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  card: '#FFFFFF',
-  border: '#E7DDCC',
-};
 
 // Starting/ending Y offset for the sheet's slide animation — well past the
 // sheet's own height, so it's always fully off-screen at rest.
@@ -26,7 +21,9 @@ export function CategoryDropdown({
   value: string;
   onChange: (category: string) => void;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
   const [modalVisible, setModalVisible] = useState(false);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
@@ -76,7 +73,7 @@ export function CategoryDropdown({
         <Text style={styles.triggerText} numberOfLines={1}>
           {value}
         </Text>
-        <Ionicons name="chevron-down" size={14} color={palette.text} />
+        <Ionicons name="chevron-down" size={14} color={theme.text} />
       </Pressable>
 
       <Modal
@@ -128,6 +125,7 @@ function Row({
   accentColor: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -144,7 +142,7 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,7 +154,7 @@ const styles = StyleSheet.create({
   triggerText: {
     fontSize: 16,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     flexShrink: 1,
   },
   pressed: {
@@ -172,10 +170,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   sheet: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 24,
@@ -187,13 +185,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: t.border,
     marginBottom: 8,
   },
   sheetTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingHorizontal: 8,
     paddingBottom: 4,
   },
@@ -208,6 +206,6 @@ const styles = StyleSheet.create({
   sheetRowText: {
     fontSize: 15,
     fontWeight: '500',
-    color: palette.text,
+    color: t.text,
   },
 });

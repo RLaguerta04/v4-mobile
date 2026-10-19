@@ -8,11 +8,12 @@ import { Animated, FlatList, Modal, Pressable, Share, StyleSheet, Text, View } f
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { MentionCard } from '@/components/mention-card';
-import { chartTokens } from '@/components/dashboard/palette';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
 import { useBookmarks } from '@/contexts/bookmarks-context';
-import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { SocialMention } from '@/data/types';
 
 // The view's posts as shareable text — title + each post's handle · date, the
@@ -49,6 +50,8 @@ export function ExploreSheet({
   overview?: string;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const { isSaved, toggleSave } = useBookmarks();
   const dismiss = useDismissGesture(onClose);
 
@@ -69,7 +72,7 @@ export function ExploreSheet({
                       accessibilityLabel="Export posts"
                       hitSlop={8}
                       style={({ pressed }) => [styles.exportPill, pressed && styles.pressed]}>
-                      <Ionicons name="share-outline" size={14} color="#FFFFFF" />
+                      <Ionicons name="share-outline" size={14} color={theme.card} />
                       <Text style={styles.exportPillText}>Export</Text>
                     </Pressable>
                   ) : undefined
@@ -107,10 +110,10 @@ export function ExploreSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F5F4F0',
+    backgroundColor: t.background,
   },
   fill: {
     flex: 1,
@@ -126,15 +129,17 @@ const styles = StyleSheet.create({
   postsLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
+  // Inverted primary pill: ink fill + card-colored glyph/text in light, a light
+  // pill with dark content in dark (see RangeToggle in chart-card).
   exportPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.text,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 6,
@@ -142,11 +147,11 @@ const styles = StyleSheet.create({
   exportPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.card,
   },
   empty: {
     textAlign: 'center',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
   },
   pressed: {

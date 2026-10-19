@@ -4,15 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MmiIcon } from '@/components/mmi-icon';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
 import { APP_VIEWS, AppView, VIEW_ACCENT_COLORS, VIEW_ICON } from '@/contexts/auth-context';
-
-const palette = {
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  card: '#FFFFFF',
-  border: '#E7DDCC',
-};
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 // Starting/ending Y offset for the sheet's slide animation — well past the
 // sheet's own height, so it's always fully off-screen at rest.
@@ -27,6 +22,8 @@ export function ViewSwitcher({
   onChange: (view: AppView) => void;
   variant?: 'header' | 'row' | 'logo';
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -84,10 +81,10 @@ export function ViewSwitcher({
           accessibilityRole="button"
           accessibilityLabel={`App view: ${value}. Tap to change`}
           style={({ pressed }) => [styles.rowTrigger, pressed && styles.pressed]}>
-          <Ionicons name="grid-outline" size={20} color={palette.text} />
+          <Ionicons name="grid-outline" size={20} color={theme.text} />
           <Text style={styles.rowTriggerLabel}>App View</Text>
           <Text style={styles.rowTriggerValue}>{value}</Text>
-          <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
+          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
         </Pressable>
       ) : (
         <Pressable
@@ -96,7 +93,7 @@ export function ViewSwitcher({
           accessibilityLabel={`Current view: ${value}. Tap to switch`}
           style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}>
           <Text style={styles.triggerText}>{value}</Text>
-          <Ionicons name="chevron-down" size={14} color={palette.text} />
+          <Ionicons name="chevron-down" size={14} color={theme.text} />
         </Pressable>
       )}
 
@@ -159,7 +156,7 @@ export function ViewSwitcher({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -168,7 +165,7 @@ const styles = StyleSheet.create({
   triggerText: {
     fontSize: 16,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   rowTrigger: {
     flexDirection: 'row',
@@ -180,11 +177,11 @@ const styles = StyleSheet.create({
   rowTriggerLabel: {
     flex: 1,
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   rowTriggerValue: {
     fontSize: 14,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   pressed: {
     opacity: 0.6,
@@ -199,10 +196,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   sheet: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 24,
@@ -214,7 +211,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: t.border,
     marginBottom: 8,
   },
   sheetRow: {
@@ -240,6 +237,6 @@ const styles = StyleSheet.create({
   sheetRowText: {
     fontSize: 15,
     fontWeight: '500',
-    color: palette.text,
+    color: t.text,
   },
 });

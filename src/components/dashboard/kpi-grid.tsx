@@ -4,11 +4,13 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PLATFORM_ICON } from '@/components/author-avatar';
-import { chartTokens, formatDelta } from '@/components/dashboard/palette';
+import { formatDelta } from '@/components/dashboard/palette';
 import { KpiCard } from '@/data/dashboard-metrics';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 function KpiCardView({ card, onPress }: { card: KpiCard; onPress?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const up = card.deltaPct >= 0;
   return (
     <Pressable
@@ -57,6 +59,7 @@ function KpiCardView({ card, onPress }: { card: KpiCard; onPress?: () => void })
 }
 
 export function KpiGrid({ cards, onCardPress }: { cards: KpiCard[]; onCardPress?: (c: KpiCard) => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.grid}>
       {cards.map((c) => (
@@ -68,7 +71,7 @@ export function KpiGrid({ cards, onCardPress }: { cards: KpiCard[]; onCardPress?
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -80,9 +83,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   card: {
-    backgroundColor: chartTokens.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     borderRadius: 12,
     padding: Spacing.two + 2,
     minHeight: 104,
@@ -106,14 +109,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 10,
     fontWeight: '600',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   bigValue: {
     fontSize: 26,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
     letterSpacing: -0.4,
     marginTop: 2,
   },
@@ -133,21 +136,21 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#FFFFFF', // on the colored avatar fill
   },
   name: {
     flexShrink: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   detail: {
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   divider: {
     height: 1,
-    backgroundColor: chartTokens.border,
+    backgroundColor: t.borderCool,
     marginVertical: 6,
   },
   delta: {
@@ -155,9 +158,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   up: {
-    color: '#16A34A',
+    color: t.positive,
   },
   down: {
-    color: '#E94F37',
+    color: t.negative,
   },
 });

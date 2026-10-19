@@ -4,8 +4,9 @@
 // Top Entities, per-platform lists) (spec §10).
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
-import { chartTokens, formatCompact } from '@/components/dashboard/palette';
+import { Spacing, Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { formatCompact } from '@/components/dashboard/palette';
 
 export type ShareSegment = { label: string; value: number; color: string };
 
@@ -20,6 +21,7 @@ export function ShareBar({
   onSelect?: (i: number) => void;
   height?: number;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   const last = segments.length - 1;
   return (
@@ -80,6 +82,7 @@ export function HBarList({
   barColor?: string;
   emptyText?: string;
 }) {
+  const styles = useThemedStyles(makeStyles);
   if (items.length === 0) {
     return <Text style={styles.empty}>{emptyText}</Text>;
   }
@@ -120,7 +123,7 @@ export function HBarList({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   shareRow: {
     flexDirection: 'row',
     width: '100%',
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
   shareLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#FFFFFF', // on a colored segment fill
   },
   list: {
     gap: Spacing.two,
@@ -147,12 +150,12 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   rowSub: {
     fontSize: 11,
     fontWeight: '400',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   rowBarWrap: {
     flexDirection: 'row',
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#F0EEEA',
+    backgroundColor: t.topicBg,
     overflow: 'hidden',
   },
   fill: {
@@ -173,13 +176,13 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 11,
     fontWeight: '700',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     minWidth: 28,
     textAlign: 'right',
   },
   empty: {
     fontSize: 12,
-    color: chartTokens.axisText,
+    color: t.textTertiary,
     fontStyle: 'italic',
     paddingVertical: Spacing.three,
     textAlign: 'center',

@@ -8,7 +8,9 @@ import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { CollapsibleHeader } from '@/components/collapsible-header';
 import { InfluencerDetailModal } from '@/components/influencer-detail-modal';
 import { PageHeading } from '@/components/page-heading';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
 import { SocialPlatform } from '@/data/types';
 import {
@@ -21,16 +23,6 @@ import {
   sortInfluencers,
 } from '@/utils/influencers';
 
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-  accent: '#6B4DE8',
-  value: '#16A34A',
-};
-
 // Short labels for the sort chip (the sheet shows the full INFLUENCER_SORTS labels).
 const SORT_SHORT: Record<InfluencerSort, string> = {
   score: 'Score',
@@ -40,6 +32,8 @@ const SORT_SHORT: Record<InfluencerSort, string> = {
 };
 
 export default function InfluencersScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const [selected, setSelected] = useState<Influencer | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<InfluencerSort>('score');
@@ -92,12 +86,12 @@ export default function InfluencersScreen() {
 
           <View style={styles.toolbar}>
             <View style={styles.searchBox}>
-              <Ionicons name="search" size={16} color={palette.textSecondary} />
+              <Ionicons name="search" size={16} color={theme.textSecondary} />
               <TextInput
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search influencers…"
-                placeholderTextColor={palette.textSecondary}
+                placeholderTextColor={theme.textSecondary}
                 style={styles.searchInput}
                 returnKeyType="search"
               />
@@ -107,7 +101,7 @@ export default function InfluencersScreen() {
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Clear search">
-                  <Ionicons name="close-circle" size={16} color={palette.textSecondary} />
+                  <Ionicons name="close-circle" size={16} color={theme.textSecondary} />
                 </Pressable>
               )}
             </View>
@@ -116,11 +110,11 @@ export default function InfluencersScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Sort: ${SORT_SHORT[sort]}`}
               style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-              <Ionicons name="swap-vertical" size={14} color={palette.text} />
+              <Ionicons name="swap-vertical" size={14} color={theme.text} />
               <Text style={styles.chipText} numberOfLines={1}>
                 {SORT_SHORT[sort]}
               </Text>
-              <Ionicons name="chevron-down" size={14} color={palette.textSecondary} />
+              <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />
             </Pressable>
             <Pressable
               onPress={() => setFilterOpen(true)}
@@ -131,7 +125,7 @@ export default function InfluencersScreen() {
                 platforms.size > 0 && styles.iconBtnOn,
                 pressed && styles.pressed,
               ]}>
-              <Ionicons name="filter" size={16} color={palette.text} />
+              <Ionicons name="filter" size={16} color={theme.text} />
               {platforms.size > 0 && <View style={styles.filterDot} />}
             </Pressable>
           </View>
@@ -196,7 +190,7 @@ export default function InfluencersScreen() {
                   accessibilityState={{ selected: on }}
                   style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
                   <Text style={[styles.menuRowText, on && styles.menuRowTextOn]}>{opt.label}</Text>
-                  {on && <Ionicons name="checkmark" size={18} color={palette.text} />}
+                  {on && <Ionicons name="checkmark" size={18} color={theme.text} />}
                 </Pressable>
               );
             })}
@@ -246,7 +240,7 @@ export default function InfluencersScreen() {
                   <Ionicons
                     name={on ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={on ? palette.accent : palette.textSecondary}
+                    color={on ? theme.info : theme.textSecondary}
                   />
                 </Pressable>
               );
@@ -259,6 +253,7 @@ export default function InfluencersScreen() {
 }
 
 function InfluencerRow({ influencer, onOpen }: { influencer: Influencer; onOpen: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onOpen}
@@ -287,10 +282,10 @@ function InfluencerRow({ influencer, onOpen }: { influencer: Influencer; onOpen:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -310,11 +305,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   pressed: {
     opacity: 0.6,
@@ -331,9 +326,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
@@ -341,16 +336,16 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: palette.text,
+    color: t.text,
     padding: 0,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
@@ -358,19 +353,19 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   iconBtn: {
     width: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
   },
   iconBtnOn: {
-    borderColor: palette.accent,
+    borderColor: t.info,
   },
   filterDot: {
     position: 'absolute',
@@ -379,7 +374,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: palette.accent,
+    backgroundColor: t.info,
   },
 
   listContent: {
@@ -388,7 +383,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
     paddingHorizontal: Spacing.four,
   },
@@ -397,9 +392,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     paddingVertical: Spacing.two + 2,
     paddingHorizontal: Spacing.three,
@@ -411,11 +406,11 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   rowSub: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   rowStat: {
     alignItems: 'flex-end',
@@ -424,16 +419,16 @@ const styles = StyleSheet.create({
   rowScore: {
     fontSize: 17,
     fontWeight: '800',
-    color: palette.accent,
+    color: t.info,
   },
   rowReach: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.value,
+    color: t.positive,
   },
   rowStatLabel: {
     fontSize: 10,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
@@ -442,10 +437,10 @@ const styles = StyleSheet.create({
   menuContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   menuSheet: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: Spacing.four,
@@ -457,7 +452,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: t.borderCool,
     marginBottom: Spacing.two,
   },
   menuTitleRow: {
@@ -469,7 +464,7 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: Spacing.one,
@@ -477,7 +472,7 @@ const styles = StyleSheet.create({
   clearText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.accent,
+    color: t.info,
     marginBottom: Spacing.one,
   },
   menuRow: {
@@ -488,7 +483,7 @@ const styles = StyleSheet.create({
   },
   menuRowText: {
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   menuRowTextOn: {
     fontWeight: '700',

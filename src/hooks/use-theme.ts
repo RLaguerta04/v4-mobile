@@ -1,14 +1,13 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Light/dark theming entry point. The resolved token set and mode controls
+ * live in the ThemeProvider (contexts/theme-context); this file re-exports the
+ * hooks so existing `@/hooks/use-theme` importers keep working unchanged.
+ *
+ * Learn more: https://docs.expo.dev/guides/color-schemes/
  */
-
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
-
-  return Colors[theme];
-}
+export {
+  useTheme,
+  useThemeMode,
+  useSemanticColors,
+  useAccentColor,
+} from '@/contexts/theme-context';

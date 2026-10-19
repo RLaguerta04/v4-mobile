@@ -10,11 +10,16 @@
 // use is a drop-in follow-up (inline them in place of the two <script src> tags).
 const PDFJS_BASE = 'https://unpkg.com/pdfjs-dist@3.11.174/legacy/build';
 
-// Warm sand background matching the app's PDF surface (cardPalette.track).
-const SURFACE = '#EDE6D8';
+// Backdrop behind the rendered PDF pages. Light = warm sand matching the app's
+// PDF surface (theme.track); dark = the near-black app canvas (theme.background).
+// The pages themselves stay white (they're the scanned document) — only this
+// surrounding chrome flips, so the document is never tinted.
+const SURFACE_LIGHT = '#EDE6D8';
+const SURFACE_DARK = '#0A0A0B';
 
-export function buildPdfViewerHtml(base64: string, opts: { allPages: boolean }): string {
-  const { allPages } = opts;
+export function buildPdfViewerHtml(base64: string, opts: { allPages: boolean; isDark?: boolean }): string {
+  const { allPages, isDark = false } = opts;
+  const surface = isDark ? SURFACE_DARK : SURFACE_LIGHT;
   // `allPages` → full-screen modal: render every page, allow pinch-zoom + scroll.
   // Otherwise → inline preview: first page only, fixed scale, no zoom.
   return `<!doctype html>
@@ -25,7 +30,7 @@ export function buildPdfViewerHtml(base64: string, opts: { allPages: boolean }):
     allPages ? 5 : 1
   }, user-scalable=${allPages ? 'yes' : 'no'}" />
 <style>
-  html, body { margin: 0; padding: 0; background: ${SURFACE}; -webkit-text-size-adjust: 100%; }
+  html, body { margin: 0; padding: 0; background: ${surface}; -webkit-text-size-adjust: 100%; }
   #pages { display: flex; flex-direction: column; align-items: center; gap: ${allPages ? '10px' : '0'}; padding: ${
     allPages ? '10px' : '0'
   }; box-sizing: border-box; }

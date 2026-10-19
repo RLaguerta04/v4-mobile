@@ -4,6 +4,7 @@
 // the chart variant nudges the two near-black platforms (X, TikTok) apart so
 // stacked bars and legends stay legible on a phone.
 import { MediaMeterColors } from '@/constants/theme';
+import { useTheme, useThemeMode } from '@/contexts/theme-context';
 import { Sentiment, SocialPlatform } from '@/data/types';
 
 // Brand colors exactly as the web KPI-card avatars use them.
@@ -78,16 +79,37 @@ export function seriesColor(i: number): string {
 }
 
 // Chart surface tokens, matching the web .db-card look.
-export const chartTokens = {
-  card: '#FFFFFF',
-  border: '#E4E6EA',
-  gridline: '#EEECE8',
-  axisText: '#9CA3AF',
-  text: '#181D26',
-  textSecondary: '#6B7280',
-  storyValue: '#B9A4F7', // lilac line/area — "Total Story Value" in the web timeline
-  totalResults: '#16A34A', // green bars — "Total Results" count
-} as const;
+//
+// Theme-aware replacement for the former static object: call `useChartTokens()`
+// inside a component and read the values inline (SVG fill/stroke props) or pass
+// the result into a makeStyles factory. Values resolve to the active scheme's
+// theme tokens so charts read correctly on both canvases:
+//   • card/text/textSecondary        → the matching theme surface/text tokens
+//   • border (axis frames / non-card lines) → t.borderCool (keeps the #E4E6EA
+//     cool hairline in light, stays visible on dark). Card CONTAINER outlines
+//     are handled per-role by consumers with t.cardBorder.
+//   • axisText (faint axis labels)    → t.textTertiary
+//   • gridline                        → the warm light hairline, or a low-alpha
+//     white that reads on the dark canvas
+//   • storyValue                      → the fixed lilac data series (legible on
+//     dark, so intentionally not themed)
+//   • totalResults                    → t.positive (green "Total Results" bars)
+export function useChartTokens() {
+  const t = useTheme();
+  const { isDark } = useThemeMode();
+  return {
+    card: t.card,
+    border: t.borderCool,
+    gridline: isDark ? 'rgba(255, 255, 255, 0.08)' : '#EEECE8',
+    axisText: t.textTertiary,
+    text: t.text,
+    textSecondary: t.textSecondary,
+    storyValue: '#B9A4F7', // lilac line/area — "Total Story Value" in the web timeline
+    totalResults: t.positive, // green bars — "Total Results" count
+  };
+}
+
+export type ChartTokens = ReturnType<typeof useChartTokens>;
 
 // Compact number format shared by axes, tiles, and legends (1.2K / 3.4M).
 export function formatCompact(n: number): string {

@@ -83,7 +83,7 @@ const rawNewsArticles: NewsArticle[] = [
     length: '3:42',
     aired: 'Jul 23, 2026 · 6:30 PM',
     transcript:
-      'The electric vehicle race in the Philippines is heating up as BYD rolls out its Sealion 7 to local dealerships, intensifying competition with Tesla and legacy brands...',
+      'The electric vehicle race in the Philippines is heating up as BYD rolls out its Sealion 7 to local dealerships. The dual-motor SUV arrived this week at the Dasmariñas inauguration, drawing a crowd of early adopters and industry watchers. Company executives say the Sealion 7 is designed to compete directly with Tesla’s Model Y and several legacy brands. Pricing places it in the premium segment, above the Atto 3 but below the flagship models. Analysts note that BYD’s aggressive dealership expansion is reshaping the local market. Across Metro Manila and key provinces, the brand is opening new showrooms at a rapid pace. For buyers, the growing network means shorter travel times for service and test drives. Still, some consumers remain cautious about charging infrastructure and long-term support. BYD Philippines has pledged to accelerate deliveries and strengthen after-sales service. As the year closes, the competition between electric and hybrid models shows no sign of slowing. For Market Edge, this is your Auto Industry briefing.',
     thumbnail: require('@/assets/images/byd/dealership-expansion.jpg'),
   },
   {
@@ -429,7 +429,7 @@ const rawNewsArticles: NewsArticle[] = [
     length: '5:10',
     aired: 'Jul 17, 2026 · 9:00 PM',
     transcript:
-      'Three very different players are fighting for the Filipino EV buyer: China’s BYD, America’s Tesla, and the hybrid incumbent Toyota. Tonight we break down what each brings to the table...',
+      'Three very different players are fighting for the Filipino EV buyer: China’s BYD, America’s Tesla, and the hybrid incumbent Toyota. Tonight we break down what each brings to the table. BYD leads on price and sheer model range, from the compact Atto 2 to the dual-motor Sealion 7. Tesla counters with its software, its charging network, and a brand that still turns heads on the road. Toyota, meanwhile, is betting that Filipino buyers aren’t ready to give up the familiarity of a hybrid just yet. Analysts say the next twelve months will be decisive as all three expand their dealer footprint. Charging infrastructure remains the biggest question mark for mass adoption outside Metro Manila. For many families, the decision still comes down to after-sales support and resale value. BYD’s rapid rollout has pressured rivals to sharpen their own pricing. Whether that race benefits consumers or squeezes the smaller brands is the story we will keep watching. That is tonight’s Mobility segment, here on The Final Word.',
     thumbnail: require('@/assets/images/byd/mias-2026-preview.jpg'),
   },
   {
@@ -458,7 +458,7 @@ const rawNewsArticles: NewsArticle[] = [
     length: '2:05',
     aired: 'Jul 20, 2026 · 7:15 AM',
     transcript:
-      'Ayon sa BYD Philippines, dumadami na ang stocks ng Seal 5 DM-i at inaasahang maipapadala na sa mga reservation holders sa mga susunod na linggo...',
+      'Magandang umaga, Metro Manila. Ngayong umaga sa Motoring Update, titingnan natin ang mabilis na paglago ng electric vehicle market sa Pilipinas. Ayon sa BYD Philippines, dumadami na ang stocks ng Seal 5 DM-i, at inaasahang maipapadala na ito sa mga reservation holders sa mga susunod na linggo. Sinabi ng kumpanya na ang Seal 5 DM-i ay magkakaroon ng mas mahabang electric range kumpara sa mga naunang modelo. Bukod dito, lalakihan din ng BYD ang kanilang dealership network sa Cavite at Cebu bago matapos ang taon. Para sa mga cross-shoppers, ang presyo ng Seal 5 DM-i ay nakaposisyon sa pagitan ng Atto 3 at ng Sealion 7. Ngunit may ilang mamimili pa ring nag-aalala tungkol sa after-sales service at sa haba ng waiting list. Pinangako ng BYD na pabibilisin nila ang allocation upang matugunan ang mga reklamo. Iyan po ang inyong Motoring Update. Manatili lamang sa DZRH para sa iba pang balita.',
   },
   {
     id: 'a20',

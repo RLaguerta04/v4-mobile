@@ -11,16 +11,9 @@ import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
-
-const C = {
-  text: '#181D26',
-  bg: '#FFFFFF',
-  border: '#E4E6EA',
-  muted: '#6B7280',
-  faint: '#9CA3AF',
-  grabber: '#D4D1CC',
-};
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 export function SheetHeader({
   onClose,
@@ -35,6 +28,8 @@ export function SheetHeader({
   rightActions?: ReactNode;
   children?: ReactNode;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.header, { paddingTop: insets.top + Spacing.one }]}>
@@ -66,27 +61,27 @@ export function SheetHeader({
           accessibilityLabel="Close"
           hitSlop={8}
           style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}>
-          <Ionicons name="close" size={24} color={C.text} />
+          <Ionicons name="close" size={24} color={theme.text} />
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
-    backgroundColor: C.bg,
+    backgroundColor: t.card,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: t.borderCool,
   },
   grabber: {
     alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: C.grabber,
+    backgroundColor: t.border,
     marginBottom: Spacing.one,
   },
   row: {
@@ -101,7 +96,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: C.text,
+    color: t.text,
   },
   crumb: {
     flexDirection: 'row',
@@ -109,17 +104,17 @@ const styles = StyleSheet.create({
   },
   crumbOverview: {
     fontSize: 13,
-    color: C.muted,
+    color: t.textSecondary,
   },
   crumbSep: {
     fontSize: 13,
-    color: C.faint,
+    color: t.textTertiary,
   },
   crumbCurrent: {
     flexShrink: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: C.text,
+    color: t.text,
   },
   actions: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { AppFonts, Fonts, ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useThemeMode } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
@@ -10,6 +10,7 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const { isDark } = useThemeMode();
 
   return (
     <Text
@@ -22,6 +23,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
+        // The static link blue fails contrast on the dark canvas — lift it to
+        // the lighter semantic info blue there (light keeps #3c87f7 exactly).
+        type === 'linkPrimary' && isDark && { color: theme.info },
         type === 'code' && styles.code,
         style,
       ]}

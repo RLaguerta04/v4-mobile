@@ -13,21 +13,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MmiIcon } from '@/components/mmi-icon';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-  disabled: '#D8D2C4',
-};
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  // Pre-auth brand screen: the view accent stays the literal brand color (not
+  // the lightened on-dark variant) — it drives the logo + primary button fill.
   const { signIn, accentColor } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,12 +55,12 @@ export function LoginScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Email</Text>
                 <View style={styles.inputRow}>
-                  <Ionicons name="mail-outline" size={18} color={palette.textSecondary} />
+                  <Ionicons name="mail-outline" size={18} color={theme.textSecondary} />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
                     placeholder="Enter your email"
-                    placeholderTextColor={palette.textSecondary}
+                    placeholderTextColor={theme.textSecondary}
                     style={styles.input}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -76,12 +73,12 @@ export function LoginScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputRow}>
-                  <Ionicons name="lock-closed-outline" size={18} color={palette.textSecondary} />
+                  <Ionicons name="lock-closed-outline" size={18} color={theme.textSecondary} />
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Enter your password"
-                    placeholderTextColor={palette.textSecondary}
+                    placeholderTextColor={theme.textSecondary}
                     style={styles.input}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -96,7 +93,7 @@ export function LoginScreen() {
                     <Ionicons
                       name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
                       size={18}
-                      color={palette.textSecondary}
+                      color={theme.textSecondary}
                     />
                   </Pressable>
                 </View>
@@ -111,7 +108,7 @@ export function LoginScreen() {
                 <Ionicons
                   name={rememberMe ? 'checkbox' : 'square-outline'}
                   size={20}
-                  color={rememberMe ? accentColor : palette.textSecondary}
+                  color={rememberMe ? accentColor : theme.textSecondary}
                 />
                 <Text style={styles.rememberText}>Remember me</Text>
               </Pressable>
@@ -139,10 +136,10 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -164,11 +161,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 14,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   form: {
     gap: Spacing.four,
@@ -179,7 +176,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   inputRow: {
     flexDirection: 'row',
@@ -188,14 +185,14 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   rememberRow: {
     flexDirection: 'row',
@@ -204,7 +201,7 @@ const styles = StyleSheet.create({
   },
   rememberText: {
     fontSize: 14,
-    color: palette.text,
+    color: t.text,
   },
   loginButton: {
     height: 50,
@@ -213,7 +210,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginButtonDisabled: {
-    backgroundColor: palette.disabled,
+    backgroundColor: t.track,
   },
   loginButtonText: {
     fontSize: 16,
@@ -221,7 +218,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   loginButtonTextDisabled: {
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   pressed: {
     opacity: 0.85,

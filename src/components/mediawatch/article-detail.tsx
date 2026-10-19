@@ -28,24 +28,27 @@ import {
   KeywordPills,
   TONE_OPTIONS,
   TriSelector,
-  cardPalette,
 } from '@/components/detail-primitives';
 import { AddToTrackerSheet } from '@/components/mediawatch/add-to-tracker-sheet';
 import { AudioHeroPlayer } from '@/components/mediawatch/audio-hero-player';
 import {
   DocumentAttachment,
-  MEDIA_TYPE_META,
+  mediaMeta,
   MediaTypeIcon,
+  SocialIconRow,
 } from '@/components/mediawatch/article-ui';
 import { InlinePdfPreview, PdfPreviewModal } from '@/components/mediawatch/pdf-preview-modal';
+import { SyncedTranscriptTheater } from '@/components/mediawatch/synced-transcript';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useArticleTracker } from '@/contexts/adwatch-tracker-context';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
-import { useMediaWatchTracker } from '@/contexts/mediawatch-tracker-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace } from '@/data/article-workspace';
 import { formatAve, mediaChannel } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
 import type { TrackerMatch } from '@/data/types';
@@ -58,24 +61,11 @@ const PRINT_TYPES = new Set(['broadsheet', 'provincial', 'tabloid', 'magazine'])
 // to this sample, which the PDF viewer renders the same way.
 const SAMPLE_PRINT_PDF: number = require('@/assets/pdf/byd-seal-5-dm-i-152750.pdf');
 
-// Decorative author social-presence chips — a fixed brand set shown for every
-// author (web parity: renderSocialIcons / MD_SOCIALS in app.js; not per-author
-// data, purely visual). Brand colors match the web's MD_SOCIALS.
-const AUTHOR_SOCIALS: { icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { icon: 'logo-facebook', color: '#1877F2' },
-  { icon: 'logo-x', color: '#000000' },
-  { icon: 'logo-instagram', color: '#E4405F' },
-  { icon: 'logo-linkedin', color: '#0A66C2' },
-  { icon: 'logo-youtube', color: '#FF0000' },
-  { icon: 'logo-pinterest', color: '#E60023' },
-  { icon: 'logo-reddit', color: '#FF4500' },
-  { icon: 'logo-tiktok', color: '#111111' },
-];
-
 // Detail-view analogue of the card's media slot — same per-type rule (card
 // parity), just rendered larger as the article's hero attachment. `onPreviewPdf`
 // opens the in-app viewer; only passed through when a real file is attached.
 function ArticleDetailMedia({ article, onPreviewPdf }: { article: NewsArticle; onPreviewPdf: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   if ((article.mediaType === 'online' || article.mediaType === 'blog' || article.mediaType === 'tv') && article.thumbnail) {
     return (
       <View style={styles.detailThumb}>
@@ -115,6 +105,7 @@ const CHART_COLORS = {
 // A tiny coverage-volume sparkline rendered with plain Views (web parity: the
 // detail chart's daily bars, incl. the highlighted tallest bar). No svg needed.
 function CoverageSparkline({ data, bar, peak }: { data: number[]; bar: string; peak: string }) {
+  const styles = useThemedStyles(makeStyles);
   const rawMax = Math.max(...data);
   const max = Math.max(1, rawMax);
   const peakIndex = data.indexOf(rawMax);
@@ -146,6 +137,7 @@ function buildAvePerDay(article: NewsArticle): number[] {
 // metric's chart is shown below (web parity: adp-metric / switchMetric). SV
 // shows coverage volume; AVE shows the same bars as a PHP distribution.
 function MetricCard({ article }: { article: NewsArticle }) {
+  const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState<'sv' | 'ave'>('sv');
   const avePerDay = buildAvePerDay(article);
   return (
@@ -189,13 +181,13 @@ function MetricCard({ article }: { article: NewsArticle }) {
 
 // Deterministic, offline "AI" read of the article — mirrors the web's simulated
 // summarize (gist of the story + a read of the coverage angle). No backend.
-function buildArticleSummary(a: NewsArticle): { gist: string; read: string } {
+function buildArticleSummary(a: NewsArticle, adMode: boolean): { gist: string; read: string } {
   const toneWord =
     a.tone === 'positive' ? 'favourable' : a.tone === 'negative' ? 'critical' : 'balanced';
   const gist =
     a.summary ??
     `${a.outlet} reports on ${a.title.toLowerCase()} in its ${a.section} section.`;
-  const read = `This ${MEDIA_TYPE_META[a.mediaType].label} pickup from ${a.outlet} carries a ${toneWord} tone and a Story Value of ${a.storyValue.toFixed(
+  const read = `This ${mediaMeta(a.mediaType, adMode).label} ${adMode ? 'placement' : 'pickup'} from ${a.outlet} carries a ${toneWord} tone and a Story Value of ${a.storyValue.toFixed(
     1,
   )} (${formatAve(a.ave)} AVE). Brand sentiment reads ${a.sentiment}. Key entities: ${a.entities
     .slice(0, 3)
@@ -212,10 +204,13 @@ export function ArticleDetailModal({
   article: NewsArticle;
   onClose: () => void;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
+  const ws = useArticleWorkspace();
   const { isSaved, toggleSave } = useBookmarks();
   const { isArticleSaved } = useSavedArticles();
-  const { activities, countMatches, toggleMatch, createActivityWithMatch } = useMediaWatchTracker();
+  const { activities, countMatches, toggleMatch, createActivityWithMatch } = useArticleTracker();
   const saved = isSaved(article.url);
   const tracked = isArticleSaved(article.url);
   const trackedCount = countMatches(article.title);
@@ -236,7 +231,8 @@ export function ArticleDetailModal({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summary, setSummary] = useState<{ gist: string; read: string } | null>(null);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcriptTheaterOpen, setTranscriptTheaterOpen] = useState(false);
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [trackerSheetOpen, setTrackerSheetOpen] = useState(false);
 
@@ -283,7 +279,7 @@ export function ArticleDetailModal({
     setSummary(null);
     setSummaryLoading(true);
     setTimeout(() => {
-      setSummary(buildArticleSummary(article));
+      setSummary(buildArticleSummary(article, ws.adMode));
       setSummaryLoading(false);
     }, 1100);
   }
@@ -310,7 +306,7 @@ export function ArticleDetailModal({
         <Animated.View style={[styles.fill, dismiss.style]}>
           <GestureDetector gesture={dismiss.gesture}>
             <View>
-              <SheetHeader onClose={onClose} title="Article Details" />
+              <SheetHeader onClose={onClose} title={ws.adMode ? 'Ad Details' : 'Article Details'} />
             </View>
           </GestureDetector>
 
@@ -321,13 +317,13 @@ export function ArticleDetailModal({
             scrollEventThrottle={16}>
             <DetailCard>
               <View style={styles.sourceRow}>
-                <MediaTypeIcon type={article.mediaType} size={40} />
+                <MediaTypeIcon type={article.mediaType} size={40} adMode={ws.adMode} />
                 <View style={styles.identity}>
                   <Text style={styles.outlet} numberOfLines={1}>
                     {article.outlet}
                   </Text>
                   <Text style={styles.subMeta} numberOfLines={1}>
-                    {MEDIA_TYPE_META[article.mediaType].label} · {article.ago}
+                    {mediaMeta(article.mediaType, ws.adMode).label} · {article.ago}
                   </Text>
                 </View>
                 <Pressable
@@ -336,7 +332,7 @@ export function ArticleDetailModal({
                   accessibilityLabel="More actions"
                   hitSlop={8}
                   style={({ pressed }) => pressed && styles.pressed}>
-                  <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+                  <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
                 </Pressable>
               </View>
 
@@ -353,7 +349,7 @@ export function ArticleDetailModal({
                       accessibilityLabel="Hide summary"
                       hitSlop={8}
                       style={({ pressed }) => pressed && styles.pressed}>
-                      <Ionicons name="close" size={16} color={cardPalette.textSecondary} />
+                      <Ionicons name="close" size={16} color={theme.textSecondary} />
                     </Pressable>
                   </View>
                   {summaryLoading || !summary ? (
@@ -382,7 +378,7 @@ export function ArticleDetailModal({
                   <Ionicons
                     name={trackedCount > 0 ? 'folder-open' : 'folder-outline'}
                     size={13}
-                    color={trackedCount > 0 ? accentColor : cardPalette.textSecondary}
+                    color={trackedCount > 0 ? accentColor : theme.textSecondary}
                   />
                   <Text style={[styles.trackerPillText, trackedCount > 0 && { color: accentColor }]}>
                     {trackedCount > 0 ? `In Tracker · ${trackedCount}` : 'Add to Tracker'}
@@ -404,15 +400,30 @@ export function ArticleDetailModal({
                   {article.aired && <Text style={styles.broadcastAired}>Aired {article.aired}</Text>}
                   {article.transcript && (
                     <>
-                      <Text
-                        style={styles.transcript}
-                        numberOfLines={transcriptOpen ? undefined : 3}>
+                      <Text style={styles.transcript} numberOfLines={transcriptExpanded ? undefined : 3}>
                         {article.transcript}
                       </Text>
-                      <Pressable onPress={() => setTranscriptOpen((v) => !v)} accessibilityRole="button">
-                        <Text style={[styles.transcriptToggle, { color: accentColor }]}>
-                          {transcriptOpen ? 'Show less' : 'Read transcript'}
+                      <Pressable
+                        onPress={() => setTranscriptExpanded((v) => !v)}
+                        accessibilityRole="button"
+                        accessibilityLabel={transcriptExpanded ? 'Show less of the transcript' : 'Show the full transcript'}
+                        style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
+                        <Text style={[styles.showMoreText, { color: accentColor }]}>
+                          {transcriptExpanded ? 'Show less' : 'Show more'}
                         </Text>
+                        <Ionicons
+                          name={transcriptExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={14}
+                          color={accentColor}
+                        />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setTranscriptTheaterOpen(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Play with transcript"
+                        style={({ pressed }) => [styles.transcriptCta, { backgroundColor: accentColor }, pressed && styles.pressed]}>
+                        <Ionicons name="play-circle" size={18} color="#FFFFFF" />
+                        <Text style={[styles.transcriptToggle, { color: '#FFFFFF' }]}>Play with transcript</Text>
                       </Pressable>
                     </>
                   )}
@@ -436,13 +447,7 @@ export function ArticleDetailModal({
                   <Text style={styles.authorOutlet}>{article.outlet}</Text>
                 </View>
               </View>
-              <View style={styles.authorSocials}>
-                {AUTHOR_SOCIALS.map((s) => (
-                  <View key={s.icon} style={[styles.authorSocial, { backgroundColor: s.color }]}>
-                    <Ionicons name={s.icon} size={13} color="#FFFFFF" />
-                  </View>
-                ))}
-              </View>
+              <SocialIconRow style={styles.authorSocials} />
               <View style={styles.authorStatsRow}>
                 <View style={styles.authorScoreBox}>
                   <Text style={styles.authorScoreLabel}>Author Score</Text>
@@ -547,6 +552,9 @@ export function ArticleDetailModal({
       </GestureHandlerRootView>
 
       <PdfPreviewModal visible={pdfPreviewOpen} article={pdfArticle} onClose={() => setPdfPreviewOpen(false)} />
+      {transcriptTheaterOpen && (
+        <SyncedTranscriptTheater article={article} onClose={() => setTranscriptTheaterOpen(false)} />
+      )}
       <AddToTrackerSheet
         visible={trackerSheetOpen}
         match={trackerMatch}
@@ -570,19 +578,23 @@ function SheetAction({
   color?: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <Pressable
       style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}>
-      <Ionicons name={icon} size={20} color={color ?? cardPalette.text} />
+      <Ionicons name={icon} size={20} color={color ?? theme.text} />
       <Text style={[styles.sheetRowText, color && { color }]}>{label}</Text>
     </Pressable>
   );
 }
 
 function MetaRows({ article }: { article: NewsArticle }) {
+  const styles = useThemedStyles(makeStyles);
+  const { adMode } = useArticleWorkspace();
   // "Mentions" mirrors the web reference's meta card: the 9-day coverage
   // sparkline summed (renderMetaRows in app.js: chart.reduce((a,b)=>a+b,0)).
   const mentions = article.chart.reduce((a, b) => a + b, 0);
@@ -591,7 +603,7 @@ function MetaRows({ article }: { article: NewsArticle }) {
     { k: 'Outlet', v: article.outlet },
     { k: 'Section', v: article.section },
     { k: 'Author', v: article.author },
-    { k: 'Media Type', v: MEDIA_TYPE_META[article.mediaType].label },
+    { k: 'Media Type', v: mediaMeta(article.mediaType, adMode).label },
     { k: 'AVE', v: formatAve(article.ave) },
     { k: 'Published', v: article.date },
   ];
@@ -608,15 +620,15 @@ function MetaRows({ article }: { article: NewsArticle }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FAF8F4' },
+const makeStyles = (theme: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: theme.surfaceWarm },
   fill: { flex: 1 },
   body: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.six, gap: Spacing.three },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   identity: { flex: 1, gap: 2 },
-  outlet: { fontSize: 15, fontWeight: '700', color: cardPalette.text },
-  subMeta: { fontSize: 12, color: cardPalette.textSecondary },
-  headline: { fontSize: 20, fontWeight: '700', lineHeight: 27, color: cardPalette.text },
+  outlet: { fontSize: 15, fontWeight: '700', color: theme.text },
+  subMeta: { fontSize: 12, color: theme.textSecondary },
+  headline: { fontSize: 20, fontWeight: '700', lineHeight: 27, color: theme.text },
   pillRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
   trackerPill: {
     flexDirection: 'row',
@@ -626,16 +638,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: cardPalette.border,
-    backgroundColor: cardPalette.card,
+    borderColor: theme.border,
+    backgroundColor: theme.card,
   },
-  trackerPillText: { fontSize: 11.5, fontWeight: '600', color: cardPalette.textSecondary },
-  summaryBody: { fontSize: 15, lineHeight: 22, color: cardPalette.text },
+  trackerPillText: { fontSize: 11.5, fontWeight: '600', color: theme.textSecondary },
+  summaryBody: { fontSize: 15, lineHeight: 22, color: theme.text },
   detailThumb: {
     width: '100%',
     aspectRatio: 16 / 9,
     borderRadius: Spacing.three,
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
     overflow: 'hidden',
   },
   detailThumbImage: { width: '100%', height: '100%' },
@@ -670,26 +682,24 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   broadcastBox: {
-    backgroundColor: '#FAF8F4',
-    borderWidth: 1,
-    borderColor: cardPalette.border,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
     gap: 4,
   },
-  broadcastMeta: { fontSize: 13, fontWeight: '600', color: cardPalette.text },
-  broadcastAired: { fontSize: 12, color: cardPalette.textSecondary },
-  transcript: { fontSize: 13, lineHeight: 19, color: cardPalette.text, marginTop: 4 },
-  transcriptToggle: { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  broadcastMeta: { fontSize: 13, fontWeight: '600', color: theme.text },
+  broadcastAired: { fontSize: 12, color: theme.textSecondary },
+  transcript: { fontSize: 13, lineHeight: 19, color: theme.text, marginTop: 4 },
+  transcriptToggle: { fontSize: 13, fontWeight: '600' },
+  showMore: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', marginTop: Spacing.one, paddingVertical: 2 },
+  showMoreText: { fontSize: 13, fontWeight: '600' },
+  transcriptCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: Spacing.two, alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   sparkCaption: {
     fontSize: 11,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginTop: Spacing.three,
   },
-  sparkSubCaption: { fontSize: 11, color: cardPalette.textSecondary, marginTop: Spacing.one },
+  sparkSubCaption: { fontSize: 11, color: theme.textSecondary, marginTop: Spacing.one },
   sparkRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 48 },
   sparkCol: { flex: 1, height: '100%', justifyContent: 'flex-end' },
   sparkBar: { width: '100%', borderRadius: 3 },
@@ -704,17 +714,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  metricTileActive: { borderBottomColor: cardPalette.text },
-  metricTileLabel: { fontSize: 11, fontWeight: '600', color: cardPalette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  metricTileValue: { fontSize: 22, fontWeight: '700', color: cardPalette.text },
-  metricTileValueAve: { color: '#16A34A' },
-  metricTileDivider: { width: 1, backgroundColor: cardPalette.border, marginVertical: Spacing.one },
+  metricTileActive: { borderBottomColor: theme.text },
+  metricTileLabel: { fontSize: 11, fontWeight: '600', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  metricTileValue: { fontSize: 22, fontWeight: '700', color: theme.text },
+  metricTileValueAve: { color: theme.positive },
+  metricTileDivider: { width: 1, backgroundColor: theme.border, marginVertical: Spacing.one },
 
   metaList: { gap: Spacing.two },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
-  metaKey: { fontSize: 13, color: cardPalette.textSecondary },
-  metaVal: { fontSize: 13, fontWeight: '600', color: cardPalette.text, flexShrink: 1, textAlign: 'right' },
-  metaDim: { fontSize: 13, color: cardPalette.textSecondary },
+  metaKey: { fontSize: 13, color: theme.textSecondary },
+  metaVal: { fontSize: 13, fontWeight: '600', color: theme.text, flexShrink: 1, textAlign: 'right' },
+  metaDim: { fontSize: 13, color: theme.textSecondary },
 
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   authorAvatar: {
@@ -727,25 +737,18 @@ const styles = StyleSheet.create({
   },
   authorAvatarText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
   authorIdentity: { flex: 1 },
-  authorName: { fontSize: 15, fontWeight: '600', color: cardPalette.text },
-  authorOutlet: { fontSize: 12, color: cardPalette.textSecondary },
-  authorSocials: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.three },
-  authorSocial: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  authorName: { fontSize: 15, fontWeight: '600', color: theme.text },
+  authorOutlet: { fontSize: 12, color: theme.textSecondary },
+  authorSocials: { marginTop: Spacing.three },
   authorStatsRow: { flexDirection: 'row', gap: Spacing.five, marginTop: Spacing.three },
   authorScoreBox: { alignItems: 'flex-start' },
-  authorScoreLabel: { fontSize: 10, color: cardPalette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  authorScoreVal: { fontSize: 18, fontWeight: '700', color: cardPalette.text },
+  authorScoreLabel: { fontSize: 10, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  authorScoreVal: { fontSize: 18, fontWeight: '700', color: theme.text },
 
   summaryPanel: {
-    backgroundColor: '#FAF8F4',
+    backgroundColor: theme.surfaceWarm,
     borderWidth: 1,
-    borderColor: cardPalette.border,
+    borderColor: theme.border,
     borderRadius: Spacing.two,
     padding: Spacing.three,
     gap: 6,
@@ -755,27 +758,27 @@ const styles = StyleSheet.create({
   summaryLabelText: {
     fontSize: 12,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: theme.text,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   summaryLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  summaryLoadingText: { fontSize: 13, color: cardPalette.textSecondary },
+  summaryLoadingText: { fontSize: 13, color: theme.textSecondary },
   summarySub: {
     fontSize: 11,
     fontWeight: '700',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginTop: 2,
   },
-  summaryText: { fontSize: 13, lineHeight: 19, color: cardPalette.text },
+  summaryText: { fontSize: 13, lineHeight: 19, color: theme.text },
 
   pressed: { opacity: 0.5 },
   actionSheetOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end' },
-  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(26, 26, 26, 0.4)' },
+  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.scrim },
   sheet: {
-    backgroundColor: cardPalette.card,
+    backgroundColor: theme.card,
     borderTopLeftRadius: Spacing.three,
     borderTopRightRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
@@ -787,9 +790,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: cardPalette.border,
+    backgroundColor: theme.border,
     marginBottom: Spacing.two,
   },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
-  sheetRowText: { fontSize: 15, fontWeight: '600', color: cardPalette.text },
+  sheetRowText: { fontSize: 15, fontWeight: '600', color: theme.text },
 });

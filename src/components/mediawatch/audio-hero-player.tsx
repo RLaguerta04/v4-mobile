@@ -1,9 +1,9 @@
-// Radio detail "hero" audio player — the rich, web-style player for the article
-// detail (the compact one-row AudioAttachment stays on the feed card). There's
-// no real audio engine, so playback is simulated: tapping play sweeps a playhead
-// across the waveform, reveals the "played" (bright) bars over the dim base, and
-// ticks a time counter — driven by a single Reanimated progress value so the
-// visual and the clock never drift apart.
+// Radio "hero" audio player — the rich, web-style maroon player used on the
+// article detail, and (via the `compact` prop) as the feed card's radio
+// thumbnail too. There's no real audio engine, so playback is simulated: tapping
+// play sweeps a playhead across the waveform, reveals the "played" (bright) bars
+// over the dim base, and ticks a time counter — driven by a single Reanimated
+// progress value so the visual and the clock never drift apart.
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
@@ -40,7 +40,13 @@ function Bars({ bars, color }: { bars: number[]; color: string }) {
   );
 }
 
-export function AudioHeroPlayer({ article }: { article: Pick<NewsArticle, 'id' | 'outlet' | 'length' | 'ago'> }) {
+export function AudioHeroPlayer({
+  article,
+  compact = false,
+}: {
+  article: Pick<NewsArticle, 'id' | 'outlet' | 'length' | 'ago'>;
+  compact?: boolean;
+}) {
   const bars = useMemo(() => buildWaveform(article.id, WAVE_BARS), [article.id]);
   const total = useMemo(() => parseLength(article.length), [article.length]);
   const totalMs = total * 1000;
@@ -80,16 +86,22 @@ export function AudioHeroPlayer({ article }: { article: Pick<NewsArticle, 'id' |
   const headStyle = useAnimatedStyle(() => ({ transform: [{ translateX: progress.value * waveW }] }));
 
   return (
-    <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+    <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.hero, compact && styles.heroCompact]}>
       <View style={styles.top}>
         <Pressable
-          onPress={toggle}
-          accessibilityRole="button"
+          onPress={(e) => {
+            // On the feed card this player is nested inside the card's
+            // tap-to-open button; stop the tap from also opening the article,
+            // and skip the nested role="button" (invalid HTML on web).
+            if (compact) e.stopPropagation();
+            toggle();
+          }}
+          accessibilityRole={compact ? undefined : 'button'}
           accessibilityLabel={playing ? 'Pause clip' : 'Play clip'}
-          style={({ pressed }) => [styles.playBtn, pressed && styles.pressed]}>
+          style={({ pressed }) => [styles.playBtn, compact && styles.playBtnCompact, pressed && styles.pressed]}>
           <Ionicons
             name={playing ? 'pause' : 'play'}
-            size={22}
+            size={compact ? 18 : 22}
             color="#FFFFFF"
             style={playing ? undefined : styles.playGlyph}
           />
@@ -103,7 +115,7 @@ export function AudioHeroPlayer({ article }: { article: Pick<NewsArticle, 'id' |
         <Text style={styles.ago}>{article.ago}</Text>
       </View>
 
-      <View style={styles.waveRow} onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}>
+      <View style={[styles.waveRow, compact && styles.waveRowCompact]} onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}>
         <View style={StyleSheet.absoluteFill}>
           <Bars bars={bars} color="rgba(255,255,255,0.28)" />
         </View>
@@ -154,6 +166,10 @@ const styles = StyleSheet.create({
   },
   playGlyph: { marginLeft: 3 },
   pressed: { opacity: 0.8 },
+  // Compact (feed-card) overrides — same look, smaller footprint.
+  heroCompact: { padding: Spacing.two + 2, gap: Spacing.two },
+  playBtnCompact: { width: 40, height: 40, borderRadius: 20 },
+  waveRowCompact: { height: 56 },
   station: {
     backgroundColor: 'rgba(0,0,0,0.3)',
     paddingHorizontal: 10,

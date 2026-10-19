@@ -11,10 +11,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { cardPalette } from '@/components/detail-primitives';
 import { NewActivityModal } from '@/components/new-activity-modal';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import type { ActivityType, TrackerActivity, TrackerMatch } from '@/data/types';
 
 // Start-of-slide offset before the sheet's real height is measured. Bigger than
@@ -37,8 +37,10 @@ export function AddToTrackerSheet({
   createActivityWithMatch: (title: string, type: ActivityType, match: TrackerMatch) => void;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const [newActivityOpen, setNewActivityOpen] = useState(false);
 
   // Keep the Modal mounted through the close animation so the exit actually
@@ -110,7 +112,7 @@ export function AddToTrackerSheet({
                   accessibilityState={{ checked: inIt }}
                   style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
                   <View style={[styles.rowIcon, inIt && { backgroundColor: accentColor }]}>
-                    <Ionicons name={inIt ? 'checkmark' : 'add'} size={16} color={inIt ? '#FFFFFF' : cardPalette.textSecondary} />
+                    <Ionicons name={inIt ? 'checkmark' : 'add'} size={16} color={inIt ? '#FFFFFF' : theme.textSecondary} />
                   </View>
                   <Text style={styles.rowText} numberOfLines={1}>
                     {activity.title}
@@ -143,7 +145,7 @@ export function AddToTrackerSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
     position: 'absolute',
@@ -151,10 +153,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: theme.scrim,
   },
   sheet: {
-    backgroundColor: cardPalette.card,
+    backgroundColor: theme.card,
     borderTopLeftRadius: Spacing.three,
     borderTopRightRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
@@ -166,10 +168,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: cardPalette.border,
+    backgroundColor: theme.border,
     marginBottom: Spacing.two,
   },
-  title: { fontSize: 17, fontWeight: '700', color: cardPalette.text, marginBottom: Spacing.two },
+  title: { fontSize: 17, fontWeight: '700', color: theme.text, marginBottom: Spacing.two },
   list: { flexGrow: 0 },
   listContent: { gap: Spacing.one },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
@@ -180,17 +182,17 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
   },
-  rowText: { flex: 1, fontSize: 15, fontWeight: '600', color: cardPalette.text },
-  emptyText: { fontSize: 14, color: cardPalette.textSecondary, paddingVertical: Spacing.two },
+  rowText: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.text },
+  emptyText: { fontSize: 14, color: theme.textSecondary, paddingVertical: Spacing.two },
   newRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     paddingVertical: Spacing.three,
     borderTopWidth: 1,
-    borderTopColor: cardPalette.border,
+    borderTopColor: theme.border,
     marginTop: Spacing.one,
   },
   newRowText: { fontSize: 15, fontWeight: '700' },

@@ -15,22 +15,16 @@ import { PageHeading } from '@/components/page-heading';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SavedUrlCard } from '@/components/saved-url-card';
 import { SheetHeader } from '@/components/sheet-header';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { FOLDER_COLORS, SavedArticleFolder, useSavedArticles } from '@/contexts/saved-articles-context';
 import { socialMentions } from '@/data/sample-data';
 import { resolveSavedUrls } from '@/utils/saved-resolve';
 
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#181D26',
-  textSecondary: '#6B7280',
-  faint: '#9CA3AF',
-  border: '#E4E6EA',
-  hero: '#1A1A35',
-};
-
 export default function SavedScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const { folders, folderOfUrl, createFolder } = useSavedArticles();
   const [openFolderId, setOpenFolderId] = useState<string | 'ALL' | null>(null);
   const [creating, setCreating] = useState(false);
@@ -137,14 +131,14 @@ export default function SavedScreen() {
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="Folder name"
-                placeholderTextColor={palette.faint}
+                placeholderTextColor={theme.textTertiary}
                 style={styles.createInput}
                 autoFocus
                 onSubmitEditing={submitFolder}
                 returnKeyType="done"
               />
               <Pressable onPress={submitFolder} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create folder">
-                <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
+                <Ionicons name="checkmark-circle" size={28} color={theme.positive} />
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -154,7 +148,7 @@ export default function SavedScreen() {
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel">
-                <Ionicons name="close-circle" size={28} color={palette.faint} />
+                <Ionicons name="close-circle" size={28} color={theme.textTertiary} />
               </Pressable>
             </View>
           ) : null}
@@ -176,7 +170,7 @@ export default function SavedScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="New folder"
                 style={({ pressed }) => [styles.tile, styles.newTile, pressed && styles.pressed]}>
-                <Ionicons name="add" size={24} color={palette.textSecondary} />
+                <Ionicons name="add" size={24} color={theme.textSecondary} />
                 <Text style={styles.newTileText}>New folder</Text>
               </Pressable>
             ) : null}
@@ -204,6 +198,7 @@ function FolderTile({
   color: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -223,10 +218,10 @@ function FolderTile({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     alignItems: 'center',
   },
   safeArea: {
@@ -248,11 +243,11 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '800',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   // Hero
@@ -260,7 +255,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: palette.hero,
+    backgroundColor: '#1A1A35',
     borderRadius: 16,
     padding: Spacing.three,
   },
@@ -303,7 +298,7 @@ const styles = StyleSheet.create({
   avatarWrap: {
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: palette.hero,
+    borderColor: '#1A1A35',
   },
   avatarOverlap: {
     marginLeft: -12,
@@ -312,7 +307,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: Spacing.one,
@@ -328,9 +323,9 @@ const styles = StyleSheet.create({
     width: '47%',
     flexGrow: 1,
     minHeight: 112,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     padding: Spacing.three,
     justifyContent: 'space-between',
@@ -346,15 +341,15 @@ const styles = StyleSheet.create({
   tileName: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   tileCount: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   newTile: {
     borderStyle: 'dashed',
-    borderColor: palette.faint,
+    borderColor: t.textTertiary,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -363,7 +358,7 @@ const styles = StyleSheet.create({
   newTileText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   // Inline create
@@ -371,9 +366,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -382,7 +377,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
     paddingVertical: Spacing.two,
   },
 
@@ -398,7 +393,7 @@ const styles = StyleSheet.create({
 
   empty: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
     paddingHorizontal: Spacing.four,
     lineHeight: 20,

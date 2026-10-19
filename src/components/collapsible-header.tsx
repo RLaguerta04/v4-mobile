@@ -7,10 +7,12 @@ import { ReactNode, useState } from 'react';
 import { Animated, LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/contexts/theme-context';
+
 export function CollapsibleHeader({
   progress,
   onHeightChange,
-  backgroundColor = '#F5F4F0',
+  backgroundColor,
   children,
 }: {
   progress: Animated.Value;
@@ -18,6 +20,8 @@ export function CollapsibleHeader({
   backgroundColor?: string;
   children: ReactNode;
 }) {
+  const theme = useTheme();
+  const bg = backgroundColor ?? theme.background;
   const insets = useSafeAreaInsets();
   const [height, setHeight] = useState(0);
 
@@ -33,14 +37,14 @@ export function CollapsibleHeader({
     <>
       {/* Always-visible backdrop behind the status bar, so when the header
           slides away the status icons still sit over a solid strip. */}
-      <View style={[styles.statusBackdrop, { height: insets.top, backgroundColor }]} pointerEvents="none" />
+      <View style={[styles.statusBackdrop, { height: insets.top, backgroundColor: bg }]} pointerEvents="none" />
       <Animated.View
         onLayout={onLayout}
         style={[
           styles.header,
           {
             paddingTop: insets.top,
-            backgroundColor,
+            backgroundColor: bg,
             opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
             transform: [
               { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, -height] }) },

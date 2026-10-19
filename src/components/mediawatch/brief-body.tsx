@@ -15,15 +15,16 @@ import { ArticleCard } from '@/components/mediawatch/article-card';
 import { SentimentPill } from '@/components/mediawatch/article-ui';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme, useThemeMode } from '@/contexts/theme-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
-import { mediawatchTrending, newsArticles } from '@/data/mediawatch-articles';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace } from '@/data/article-workspace';
 import { articlesForEntities, deriveArticleBriefStats, formatAve, sortByNewest } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
 import { bucketsForCategory, CATEGORY_TAXONOMY } from '@/data/taxonomy';
 
-const palette = { background: '#F5F4F0', card: '#FFFFFF', text: '#1A1A1A', textSecondary: '#6B7280', border: '#E4E6EA', tabActiveBg: '#1A1A1A' };
 const TABS = [
   { key: 'spotlight', label: 'Spotlight' },
   { key: 'trending', label: 'Trending' },
@@ -31,7 +32,14 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export function MediaWatchBrief() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  // Small lilac spotlight/trending accents are too dark on the charcoal cards —
+  // swap to the lightened lilac in dark (spec: scheme-aware lilac text).
+  const lilac = isDark ? '#A78BFA' : '#6B4DE8';
   const router = useRouter();
+  const ws = useArticleWorkspace();
   const { category } = useLocalSearchParams<{ category?: string }>();
   const [tab, setTab] = useState<TabKey>('spotlight');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -53,10 +61,10 @@ export function MediaWatchBrief() {
   );
 
   const articles = useMemo(() => {
-    if (!category) return newsArticles;
+    if (!category) return ws.articles;
     const buckets = new Set(bucketsForCategory(category));
-    return newsArticles.filter((a) => a.entities.some((e) => buckets.has(e)));
-  }, [category]);
+    return ws.articles.filter((a) => a.entities.some((e) => buckets.has(e)));
+  }, [ws.articles, category]);
 
   const stats = useMemo(() => deriveArticleBriefStats(articles), [articles]);
   const ranked = useMemo(() => [...articles].sort((a, b) => b.storyValue - a.storyValue), [articles]);
@@ -82,10 +90,10 @@ export function MediaWatchBrief() {
 
   const resolvedStories = useMemo(
     () =>
-      mediawatchTrending
+      ws.trending
         .map((s) => ({ ...s, members: articlesForEntities(articles, s.entities).sort(sortByNewest) }))
         .filter((s) => s.members.length > 0),
-    [articles],
+    [ws.trending, articles],
   );
 
   function toggleStory(rank: number) {
@@ -114,7 +122,7 @@ export function MediaWatchBrief() {
   }
 
   const aiText = spotlight
-    ? `Coverage today is led by ${stats.topOutlet} and skews ${stats.dominantSentiment} (${stats.sentimentSplit[stats.dominantSentiment]}% of tracked articles), across ${stats.total} pickups worth ${formatAve(stats.combinedAve)} in AVE. "${spotlight.title}" is the standout story. Recommend monitoring the ${mediawatchTrending[0]?.entities[0] ?? 'leading'} cluster for a follow-up spike within 24 hours.`
+    ? `Coverage today is led by ${stats.topOutlet} and skews ${stats.dominantSentiment} (${stats.sentimentSplit[stats.dominantSentiment]}% of tracked ${ws.nouns}), across ${stats.total} ${ws.adMode ? 'placements' : 'pickups'} worth ${formatAve(stats.combinedAve)} in AVE. "${spotlight.title}" is the standout ${ws.adMode ? 'spot' : 'story'}. Recommend monitoring the ${ws.trending[0]?.entities[0] ?? 'leading'} cluster for a follow-up spike within 24 hours.`
     : '';
 
   return (
@@ -128,7 +136,7 @@ export function MediaWatchBrief() {
                 title={`Today's brief${category ? ` · ${category}` : ''}`}
                 rightActions={
                   <Pressable onPress={() => setAiState('idle')} accessibilityRole="button" accessibilityLabel="Regenerate brief" hitSlop={8} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
-                    <Ionicons name="refresh" size={20} color={palette.text} />
+                    <Ionicons name="refresh" size={20} color={theme.text} />
                   </Pressable>
                 }
               />
@@ -170,8 +178,8 @@ export function MediaWatchBrief() {
                     {spotlight && (
                       <View style={styles.shCard}>
                         <View style={styles.shBadge}>
-                          <Ionicons name="flame" size={11} color="#6B4DE8" />
-                          <Text style={styles.shBadgeText}>Tier 1 Spotlight</Text>
+                          <Ionicons name="flame" size={11} color={lilac} />
+                          <Text style={[styles.shBadgeText, { color: lilac }]}>{ws.spotlightTier ? 'Tier 1 Spotlight' : 'Featured Spotlight'}</Text>
                         </View>
                         <Text style={styles.shHeadline}>{spotlight.title}</Text>
                         <Text style={styles.shMeta} numberOfLines={1}>
@@ -181,8 +189,8 @@ export function MediaWatchBrief() {
                         <View style={styles.shChipRow}>
                           <SentimentPill sentiment={spotlight.sentiment} />
                           <View style={[styles.shChip, styles.shChipVelocity]}>
-                            <Ionicons name="flame" size={11} color="#6B4DE8" />
-                            <Text style={[styles.shChipText, { color: '#6B4DE8' }]}>SV {spotlight.storyValue.toFixed(1)}</Text>
+                            <Ionicons name="flame" size={11} color={lilac} />
+                            <Text style={[styles.shChipText, { color: lilac }]}>SV {spotlight.storyValue.toFixed(1)}</Text>
                           </View>
                         </View>
                         <View style={styles.shActions}>
@@ -212,7 +220,7 @@ export function MediaWatchBrief() {
                     {coverage.length > 0 && (
                       <>
                         <Text style={styles.sectionLabel}>
-                          All coverage — {coverage.length} {coverage.length === 1 ? 'article' : 'articles'}
+                          All coverage — {coverage.length} {coverage.length === 1 ? ws.noun : ws.nouns}
                         </Text>
                         <View style={styles.coverList}>
                           {coverage.map((a) => (
@@ -238,18 +246,18 @@ export function MediaWatchBrief() {
                                 <Text style={styles.trendTier}>{story.tier}</Text>
                                 <Text style={styles.trendDot}>·</Text>
                                 <Text style={styles.trendMetaText}>
-                                  {story.members.length} {story.members.length === 1 ? 'article' : 'articles'}
+                                  {story.members.length} {story.members.length === 1 ? ws.noun : ws.nouns}
                                 </Text>
                                 <Text style={styles.trendDot}>·</Text>
                                 <Text style={styles.trendValue}>{formatAve(story.members.reduce((s, m) => s + m.ave, 0))}</Text>
                               </View>
                             </View>
-                            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={palette.textSecondary} />
+                            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
                           </Pressable>
                           {open && (
                             <View style={styles.trendBody}>
                               <View style={styles.trendWhy}>
-                                <Ionicons name="flash-outline" size={13} color="#6B4DE8" />
+                                <Ionicons name="flash-outline" size={13} color={lilac} />
                                 <Text style={styles.trendWhyText}>
                                   <Text style={styles.trendWhyLabel}>Why picked: </Text>
                                   {story.why}
@@ -277,6 +285,7 @@ export function MediaWatchBrief() {
 }
 
 function Tile({ value, label, dark }: { value: string; label: string; dark: boolean }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.tile, dark ? styles.tileDark : styles.tileLight]}>
       <Text style={[styles.tileValue, dark && styles.tileValueLight]} numberOfLines={1}>
@@ -290,69 +299,77 @@ function Tile({ value, label, dark }: { value: string; label: string; dark: bool
 }
 
 function Action({ icon, label, active, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; active?: boolean; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.shAction, active && styles.shActionActive, pressed && styles.pressed]}>
-      <Ionicons name={icon} size={15} color={active ? '#FFFFFF' : palette.text} />
+      <Ionicons name={icon} size={15} color={active ? '#FFFFFF' : theme.text} />
       <Text style={[styles.shActionText, active && styles.shActionTextActive]}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.background },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   safeArea: { flex: 1 },
   fill: { flex: 1 },
   headerButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  tabRow: { flexDirection: 'row', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, backgroundColor: palette.background, borderBottomWidth: 1, borderBottomColor: palette.border },
+  tabRow: { flexDirection: 'row', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.borderCool },
   tab: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: 999 },
-  tabActive: { backgroundColor: palette.tabActiveBg },
-  tabText: { fontSize: 13, fontWeight: '600', color: palette.textSecondary },
+  // Active tab — near-black fill with white text in both schemes (no inverse-button token); kept literal.
+  tabActive: { backgroundColor: t.inverse },
+  tabText: { fontSize: 13, fontWeight: '600', color: t.textSecondary },
   tabTextActive: { color: '#FFFFFF' },
   body: { flex: 1 },
   bodyContent: { padding: Spacing.three, gap: Spacing.three },
   statsRow: { flexDirection: 'row', gap: Spacing.two + 2 },
   tile: { flex: 1, minWidth: 0, borderRadius: 12, paddingHorizontal: Spacing.two + 2, paddingVertical: Spacing.two + 4, gap: 4, justifyContent: 'space-between' },
-  tileLight: { backgroundColor: '#F0EEEC' },
+  tileLight: { backgroundColor: t.topicBg },
+  // Intentionally-dark navy stat tile — kept literal across schemes (spec).
   tileDark: { backgroundColor: '#1A1A35' },
-  tileValue: { fontSize: 14, fontWeight: '700', color: palette.text },
+  tileValue: { fontSize: 14, fontWeight: '700', color: t.text },
   tileValueLight: { color: '#FFFFFF' },
-  tileLabel: { fontSize: 10, color: 'rgba(24,29,38,0.7)' },
+  tileLabel: { fontSize: 10, color: t.textSecondary },
   tileLabelLight: { color: 'rgba(255,255,255,0.85)', textTransform: 'capitalize' },
-  sectionLabel: { fontSize: 12, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: Spacing.two },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: Spacing.two },
   coverList: { gap: Spacing.five },
-  shCard: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
+  shCard: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorderCool, borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
+  // Lilac keyword tint badge — kept literal (spec); the label color is set scheme-aware inline.
   shBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, backgroundColor: 'rgba(185, 164, 247, 0.18)', borderWidth: 1, borderColor: 'rgba(185, 164, 247, 0.35)', borderRadius: 999, paddingHorizontal: Spacing.two + 2, paddingVertical: 3 },
-  shBadgeText: { fontSize: 10.5, fontWeight: '700', color: '#6B4DE8', textTransform: 'uppercase', letterSpacing: 0.4 },
-  shHeadline: { fontSize: 17, fontWeight: '700', color: palette.text, letterSpacing: -0.2, lineHeight: 23 },
-  shMeta: { fontSize: 12, color: palette.textSecondary },
-  shMetaStrong: { color: '#16A34A', fontWeight: '700' },
+  shBadgeText: { fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  shHeadline: { fontSize: 17, fontWeight: '700', color: t.text, letterSpacing: -0.2, lineHeight: 23 },
+  shMeta: { fontSize: 12, color: t.textSecondary },
+  shMetaStrong: { color: t.positive, fontWeight: '700' },
   shChipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one + 2 },
-  shChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F0F0F0', borderRadius: 999, paddingHorizontal: Spacing.two + 2, paddingVertical: 4 },
+  shChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: t.elevated, borderRadius: 999, paddingHorizontal: Spacing.two + 2, paddingVertical: 4 },
+  // Lilac keyword tint — kept literal (spec); text color is set scheme-aware inline.
   shChipVelocity: { backgroundColor: 'rgba(185, 164, 247, 0.15)' },
-  shChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  shChipText: { fontSize: 12, fontWeight: '600', color: t.text },
   shActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.one },
-  shAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexGrow: 1, flexBasis: '46%', borderWidth: 1, borderColor: palette.border, borderRadius: 12, paddingVertical: Spacing.two + 2, backgroundColor: palette.card },
-  shActionActive: { backgroundColor: palette.text, borderColor: palette.text },
-  shActionText: { fontSize: 13, fontWeight: '600', color: palette.text },
+  shAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexGrow: 1, flexBasis: '46%', borderWidth: 1, borderColor: t.borderCool, borderRadius: 12, paddingVertical: Spacing.two + 2, backgroundColor: t.card },
+  // Active ("Tracking") action — near-black fill with white text in both schemes (no inverse-button token); kept literal.
+  shActionActive: { backgroundColor: t.inverse, borderColor: t.inverse },
+  shActionText: { fontSize: 13, fontWeight: '600', color: t.text },
   shActionTextActive: { color: '#FFFFFF' },
-  aiCard: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 16, padding: Spacing.three },
-  aiHint: { fontSize: 13, color: palette.textSecondary, lineHeight: 19 },
-  aiText: { fontSize: 14, lineHeight: 21, color: palette.text },
+  aiCard: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorderCool, borderRadius: 16, padding: Spacing.three },
+  aiHint: { fontSize: 13, color: t.textSecondary, lineHeight: 19 },
+  aiText: { fontSize: 14, lineHeight: 21, color: t.text },
   trendList: { gap: Spacing.three },
-  trendStory: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 14, overflow: 'hidden' },
+  trendStory: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorderCool, borderRadius: 14, overflow: 'hidden' },
   trendHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, padding: Spacing.three },
-  trendRank: { fontSize: 14, fontWeight: '700', color: palette.textSecondary, marginTop: 1 },
+  trendRank: { fontSize: 14, fontWeight: '700', color: t.textSecondary, marginTop: 1 },
   trendMain: { flex: 1, gap: 6 },
-  trendTitle: { fontSize: 15, fontWeight: '700', lineHeight: 20, color: palette.text },
+  trendTitle: { fontSize: 15, fontWeight: '700', lineHeight: 20, color: t.text },
   trendMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  trendTier: { fontSize: 12, fontWeight: '700', color: palette.text },
-  trendDot: { fontSize: 12, color: palette.border },
-  trendMetaText: { fontSize: 12, color: palette.textSecondary },
-  trendValue: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
-  trendBody: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.four, borderTopWidth: 1, borderTopColor: palette.border },
+  trendTier: { fontSize: 12, fontWeight: '700', color: t.text },
+  trendDot: { fontSize: 12, color: t.borderCool },
+  trendMetaText: { fontSize: 12, color: t.textSecondary },
+  trendValue: { fontSize: 12, fontWeight: '700', color: t.positive },
+  trendBody: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.four, borderTopWidth: 1, borderTopColor: t.borderCool },
+  // Lilac keyword tint — kept literal (spec).
   trendWhy: { flexDirection: 'row', gap: 6, backgroundColor: 'rgba(185, 164, 247, 0.12)', borderRadius: 10, padding: Spacing.two },
-  trendWhyText: { flex: 1, fontSize: 12, lineHeight: 17, color: palette.textSecondary },
-  trendWhyLabel: { fontWeight: '700', color: palette.text },
-  emptyText: { textAlign: 'center', color: palette.textSecondary, paddingTop: Spacing.six },
+  trendWhyText: { flex: 1, fontSize: 12, lineHeight: 17, color: t.textSecondary },
+  trendWhyLabel: { fontWeight: '700', color: t.text },
+  emptyText: { textAlign: 'center', color: t.textSecondary, paddingTop: Spacing.six },
   pressed: { opacity: 0.6 },
 });

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 // One consistent heading for every primary screen: a large Inter Tight title
 // and a one-line description in the app's editorial voice ("{phrase} · {N}"),
@@ -16,7 +17,8 @@ export function PageHeading({
   description: string;
   count?: number;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const accentColor = useAccentColor();
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
@@ -33,22 +35,23 @@ export function PageHeading({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    gap: Spacing.half,
-  },
-  title: {
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-    color: '#1A1A1A',
-  },
-  description: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  count: {
-    fontWeight: '700',
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    wrap: {
+      gap: Spacing.half,
+    },
+    title: {
+      fontSize: 22,
+      lineHeight: 26,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+      color: t.text,
+    },
+    description: {
+      fontSize: 13,
+      color: t.textSecondary,
+    },
+    count: {
+      fontWeight: '700',
+    },
+  });

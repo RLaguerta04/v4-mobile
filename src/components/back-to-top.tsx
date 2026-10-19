@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { useAccentColor } from '@/contexts/theme-context';
 
 export function useScrollToTop(threshold = 500) {
   const [visible, setVisible] = useState(false);
@@ -45,7 +45,7 @@ export function BackToTop({
   // above the bottom safe-area (full-screen modals that have no tab bar).
   anchor?: 'tabbar' | 'safe';
 }) {
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const insets = useSafeAreaInsets();
   const anim = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);

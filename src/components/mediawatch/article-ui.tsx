@@ -4,6 +4,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -14,10 +15,57 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
+import { useThemeMode } from '@/contexts/theme-context';
 import type { Sentiment } from '@/data/types';
 import type { MediaType, NewsArticle } from '@/data/mediawatch-types';
 import { fmt, parseLength } from '@/utils/audio-clip';
+
+// Decorative social-presence chips — a fixed brand set shown for every author /
+// publisher (web parity: renderSocialIcons / MD_SOCIALS in app.js; purely visual,
+// not per-entity data). Brand colors match the web's MD_SOCIALS.
+const SOCIAL_BRANDS: { icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { icon: 'logo-facebook', color: '#1877F2' },
+  { icon: 'logo-x', color: '#000000' },
+  { icon: 'logo-instagram', color: '#E4405F' },
+  { icon: 'logo-linkedin', color: '#0A66C2' },
+  { icon: 'logo-youtube', color: '#FF0000' },
+  { icon: 'logo-pinterest', color: '#E60023' },
+  { icon: 'logo-reddit', color: '#FF4500' },
+  { icon: 'logo-tiktok', color: '#111111' },
+];
+
+// A row of the brand chips — reused by the article detail's Author card and the
+// Publishers/Authors detail header.
+export function SocialIconRow({
+  size = 26,
+  gap = Spacing.two,
+  style,
+}: {
+  size?: number;
+  gap?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const iconSize = Math.round(size * 0.5);
+  return (
+    <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap }, style]}>
+      {SOCIAL_BRANDS.map((s) => (
+        <View
+          key={s.icon}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: s.color,
+          }}>
+          <Ionicons name={s.icon} size={iconSize} color="#FFFFFF" />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -34,31 +82,76 @@ export const MEDIA_TYPE_META: Record<MediaType, { icon: IoniconName; color: stri
   blog: { icon: 'logo-rss', color: '#D97706', label: 'Blog' },
 };
 
-export function MediaTypeIcon({ type, size = 36 }: { type: MediaType; size?: number }) {
-  const meta = MEDIA_TYPE_META[type];
+// AdWatch collapses every media type into one of three ad sources, each with a
+// paid-placement label + icon (web parity: _AD_LABEL / _AD_ICON in app.js):
+// tv → ADS - Video, print subtypes → ADS - Print, radio → ADS - Radio.
+const AD_MEDIA_META: Partial<Record<MediaType, { icon: IoniconName; color: string; label: string }>> = {
+  tv: { icon: 'videocam-outline', color: '#7C3AED', label: 'ADS - Video' },
+  radio: { icon: 'radio-outline', color: '#DB2777', label: 'ADS - Radio' },
+  broadsheet: { icon: 'print-outline', color: '#4F46E5', label: 'ADS - Print' },
+  provincial: { icon: 'print-outline', color: '#4F46E5', label: 'ADS - Print' },
+  tabloid: { icon: 'print-outline', color: '#4F46E5', label: 'ADS - Print' },
+  magazine: { icon: 'print-outline', color: '#4F46E5', label: 'ADS - Print' },
+};
+
+// The medium's icon/tint/label for a given workspace — the ad override in
+// AdWatch (adMode), the plain MediaWatch meta otherwise.
+export function mediaMeta(type: MediaType, adMode = false): { icon: IoniconName; color: string; label: string } {
+  return (adMode && AD_MEDIA_META[type]) || MEDIA_TYPE_META[type];
+}
+
+// Mix a hex color toward white by `amt` (0..1) — lightens a media-type hue so
+// it stays legible as an icon on the dark card.
+function lightenHex(hex: string, amt: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift: number) => {
+    const c = (n >> shift) & 255;
+    return Math.round(c + (255 - c) * amt)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+}
+
+export function MediaTypeIcon({ type, size = 36, adMode = false }: { type: MediaType; size?: number; adMode?: boolean }) {
+  const meta = mediaMeta(type, adMode);
+  const { isDark } = useThemeMode();
+  // On the dark card a 10% tint is nearly invisible and the blue/purple hues
+  // are dim, so in dark use a stronger tint + border and a lightened icon so
+  // each chip clearly pops. Light keeps the original subtle tint.
+  const bg = isDark ? `${meta.color}33` : `${meta.color}1A`;
+  const border = isDark ? `${meta.color}59` : `${meta.color}33`;
+  const iconColor = isDark ? lightenHex(meta.color, 0.3) : meta.color;
   return (
     <View
       style={[
         styles.typeIcon,
-        { width: size, height: size, borderRadius: 10, backgroundColor: `${meta.color}1A`, borderColor: `${meta.color}33` },
+        { width: size, height: size, borderRadius: 10, backgroundColor: bg, borderColor: border },
       ]}>
-      <Ionicons name={meta.icon} size={size * 0.46} color={meta.color} />
+      <Ionicons name={meta.icon} size={size * 0.46} color={iconColor} />
     </View>
   );
 }
 
-// Sentiment pill colors — the web's `.tbl-sent` palette (pos/neu/neg).
-const SENTIMENT_PILL: Record<Sentiment, { bg: string; fg: string; label: string }> = {
-  positive: { bg: '#E8F5EA', fg: '#16A34A', label: 'Positive' },
-  neutral: { bg: 'rgba(156,163,175,0.22)', fg: '#4B5563', label: 'Neutral' },
-  negative: { bg: 'rgba(220,38,38,0.1)', fg: '#DC2626', label: 'Negative' },
+// Sentiment pill colors — the web's `.tbl-sent` palette (pos/neu/neg). Light
+// keeps the exact web tints; dark uses translucent-accent fills with the
+// lightened on-dark text so the pills (esp. the neutral grey) stay legible.
+const SENTIMENT_PILL: Record<
+  Sentiment,
+  { label: string; light: { bg: string; fg: string }; dark: { bg: string; fg: string } }
+> = {
+  positive: { label: 'Positive', light: { bg: '#E8F5EA', fg: '#16A34A' }, dark: { bg: 'rgba(34,197,94,0.16)', fg: '#22C55E' } },
+  neutral: { label: 'Neutral', light: { bg: 'rgba(156,163,175,0.22)', fg: '#4B5563' }, dark: { bg: 'rgba(255,255,255,0.10)', fg: '#9CA0A8' } },
+  negative: { label: 'Negative', light: { bg: 'rgba(220,38,38,0.1)', fg: '#DC2626' }, dark: { bg: 'rgba(255,107,91,0.16)', fg: '#FF6B5B' } },
 };
 
 export function SentimentPill({ sentiment }: { sentiment: Sentiment }) {
+  const { isDark } = useThemeMode();
   const s = SENTIMENT_PILL[sentiment];
+  const c = isDark ? s.dark : s.light;
   return (
-    <View style={[styles.pill, { backgroundColor: s.bg }]}>
-      <Text style={[styles.pillText, { color: s.fg }]}>{s.label}</Text>
+    <View style={[styles.pill, { backgroundColor: c.bg }]}>
+      <Text style={[styles.pillText, { color: c.fg }]}>{s.label}</Text>
     </View>
   );
 }
@@ -138,13 +231,15 @@ export function AudioAttachment({ article }: { article: Pick<NewsArticle, 'id' |
   return (
     <View style={[styles.attachment, { backgroundColor: `${AUDIO_COLOR}14`, borderColor: `${AUDIO_COLOR}33` }]}>
       <Pressable
-        // Nested inside the card's tap-to-open Pressable — stop the press here
-        // so playing never also opens the article detail.
+        // Nested inside the card's tap-to-open Pressable, which is a
+        // role="button" (react-native-web renders it as a <button>). Deliberately
+        // NO accessibilityRole here: a second role="button" would nest one
+        // <button> inside another — invalid HTML on web. stopPropagation still
+        // keeps a tap from bubbling up and opening the article detail.
         onPress={(e) => {
           e.stopPropagation();
           toggle();
         }}
-        accessibilityRole="button"
         accessibilityLabel={playing ? 'Pause clip' : 'Play clip'}
         hitSlop={8}
         style={({ pressed }) => [
@@ -177,39 +272,79 @@ export function AudioAttachment({ article }: { article: Pick<NewsArticle, 'id' |
   );
 }
 
-// Print's card/detail attachment — every clipping ran on a physical page, so
-// this always renders. No scanned-page image in this prototype, just a page
-// reference chip. Pass `onPress` (detail view only — the card's chip sits
-// inside the card's own tappable area, so it stays a plain, non-nested View)
-// to make it open the real file when one is actually attached.
+// Deterministic faux-newsprint column widths — ragged like real body text.
+const CLIP_COLS: `${number}%`[][] = [
+  ['100%', '92%', '64%'],
+  ['96%', '100%', '78%'],
+  ['100%', '85%', '58%'],
+];
+
+// "Paper" palette for the clipping. Light = real newsprint cream; dark inverts
+// to a warm dark newsprint with light ink, so it reads as a clipping at night
+// instead of a glaring white block on the dark card.
+const PAPER = {
+  light: { bg: '#EFEAE0', border: '#DAD3C4', ink: '#2B2A26', line: '#CFC9BC', foot: '#8A857A' },
+  dark: { bg: '#2A2824', border: '#3A362F', ink: '#E8E3D8', line: '#46423A', foot: '#9A948A' },
+};
+
+// Print's card/detail attachment. There's no real scanned page in this
+// prototype, so we GENERATE a newspaper-clipping preview from the article's own
+// data — a serif masthead + headline, faint column rules, and a "PAGE N" tab —
+// to evoke a broadsheet scan instead of a flat page chip. It's fixed "paper"
+// colours (a scan reads the same in light and dark). Pass `onPress` (detail
+// view) to open the real file when one is attached.
 export function DocumentAttachment({
   article,
   onPress,
 }: {
-  article: Pick<NewsArticle, 'mediaType' | 'page'>;
+  article: Pick<NewsArticle, 'mediaType' | 'page' | 'outlet' | 'title' | 'section'>;
   onPress?: () => void;
 }) {
   const meta = MEDIA_TYPE_META[article.mediaType];
-  const content = (
-    <>
-      <Ionicons name="document-text-outline" size={15} color={meta.color} />
-      <Text style={[styles.attachmentLabel, { color: meta.color }]} numberOfLines={1}>
-        {article.page ? `Page ${article.page}` : 'Print clipping'}
+  const { isDark } = useThemeMode();
+  const p = isDark ? PAPER.dark : PAPER.light;
+  const clip = (
+    <View style={[styles.clip, { backgroundColor: p.bg, borderColor: p.border }]}>
+      <View style={styles.clipMast}>
+        <Text style={[styles.clipOutlet, { color: p.ink }]} numberOfLines={1}>
+          {article.outlet}
+        </Text>
+      </View>
+      <View style={[styles.clipRule, { backgroundColor: p.ink }]} />
+      <Text style={[styles.clipHeadline, { color: p.ink }]} numberOfLines={2}>
+        {article.title}
       </Text>
-      {onPress && <Ionicons name="chevron-forward" size={14} color={meta.color} style={styles.attachmentChevron} />}
-    </>
+      <View style={styles.clipCols}>
+        {CLIP_COLS.map((widths, c) => (
+          <View key={c} style={styles.clipCol}>
+            {widths.map((w, r) => (
+              <View key={r} style={[styles.clipLine, { width: w, backgroundColor: p.line }]} />
+            ))}
+          </View>
+        ))}
+      </View>
+      <View style={styles.clipFootRow}>
+        <Text style={[styles.clipFooter, { color: p.foot }]} numberOfLines={1}>
+          {article.section} · {meta.label}
+        </Text>
+        {onPress && (
+          <View style={styles.clipOpen}>
+            <Ionicons name="scan-outline" size={11} color={meta.color} />
+            <Text style={[styles.clipOpenText, { color: meta.color }]}>Open page</Text>
+          </View>
+        )}
+      </View>
+    </View>
   );
-  const colorStyle = { backgroundColor: `${meta.color}14`, borderColor: `${meta.color}33` };
 
-  if (!onPress) return <View style={[styles.attachment, colorStyle]}>{content}</View>;
-
+  if (!onPress) return clip;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={article.page ? `Preview page ${article.page}` : 'Preview print clipping'}
-      style={({ pressed }) => [styles.attachment, colorStyle, pressed && styles.attachmentPressed]}>
-      {content}
+      style={({ pressed }) => pressed && styles.attachmentPressed}>
+      {clip}
     </Pressable>
   );
 }
@@ -230,6 +365,40 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
   },
+  // ── Newspaper-clipping preview (print attachment) — fixed "paper" colours ──
+  clip: {
+    alignSelf: 'stretch',
+    backgroundColor: '#EFEAE0', // newsprint cream
+    borderWidth: 1,
+    borderColor: '#DAD3C4',
+    borderRadius: Spacing.two,
+    padding: 10,
+    gap: 5,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  clipMast: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  clipOutlet: {
+    flexShrink: 1,
+    fontFamily: Fonts.serif,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: '#2B2A26', // newsprint ink
+    textTransform: 'uppercase',
+  },
+  clipRule: { height: 1, backgroundColor: '#2B2A26', opacity: 0.85 },
+  clipHeadline: { fontFamily: Fonts.serif, fontSize: 15, fontWeight: '700', lineHeight: 19, color: '#2B2A26' },
+  clipCols: { flexDirection: 'row', gap: 10, marginTop: 1 },
+  clipCol: { flex: 1, gap: 4 },
+  clipLine: { height: 3, borderRadius: 1.5, backgroundColor: '#CFC9BC' },
+  clipFootRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, marginTop: 1 },
+  clipFooter: { flexShrink: 1, fontSize: 9.5, fontWeight: '600', letterSpacing: 0.3, color: '#8A857A', textTransform: 'uppercase' },
+  clipOpen: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  clipOpenText: { fontSize: 10, fontWeight: '700' },
   attachment: {
     flexDirection: 'row',
     alignItems: 'center',

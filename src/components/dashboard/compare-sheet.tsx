@@ -12,11 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HBarItem, HBarList, ShareBar } from '@/components/dashboard/bars';
 import { ChartArea, DbCard, Legend } from '@/components/dashboard/chart-card';
 import { Donut, Histogram } from '@/components/dashboard/charts';
-import {
-  chartTokens,
-  PLATFORM_CHART_COLOR,
-  SENTIMENT_COLOR,
-} from '@/components/dashboard/palette';
+import { PLATFORM_CHART_COLOR } from '@/components/dashboard/palette';
 import { EntitiesTreemap } from '@/components/dashboard/treemap';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
@@ -29,7 +25,8 @@ import {
 import { socialMentions } from '@/data/sample-data';
 import { bucketsForCategory, CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import { SocialMention, SocialPlatform } from '@/data/types';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 const CMP_COLORS = ['#7c3aed', '#ea580c', '#2563eb', '#16a34a'];
 const MAX_TOPICS = 4;
@@ -72,6 +69,7 @@ export function CompareTopicsModal({
   onClose: () => void;
   onCompare: (cats: string[]) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -137,6 +135,7 @@ export function CompareTopicsModal({
 
 // ── Compare view ──
 export function CompareView({ cats, onClose }: { cats: string[]; onClose: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const topics = useMemo(
     () =>
       cats.slice(0, MAX_TOPICS).map((name, i) => {
@@ -266,6 +265,7 @@ export function CompareView({ cats, onClose }: { cats: string[]; onClose: () => 
 }
 
 function TopicHeader({ color, name }: { color: string; name: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.topicHeader}>
       <View style={[styles.chipDot, { backgroundColor: color }]} />
@@ -275,6 +275,7 @@ function TopicHeader({ color, name }: { color: string; name: string }) {
 }
 
 function OverviewTable({ topics }: { topics: { name: string; color: string; ms: SocialMention[] }[] }) {
+  const styles = useThemedStyles(makeStyles);
   const rows = [
     { label: 'Total Results', val: (ms: SocialMention[]) => String(ms.length) },
     { label: 'Top Influencer', val: (ms: SocialMention[]) => topOf(ms, (m) => m.handle).label },
@@ -311,15 +312,15 @@ function OverviewTable({ topics }: { topics: { name: string; color: string; ms: 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   // picker
   pickerBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(26,26,26,0.4)',
+    backgroundColor: t.scrim,
   },
   pickerSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: Spacing.four,
@@ -331,17 +332,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: chartTokens.border,
+    backgroundColor: t.borderCool,
     marginBottom: Spacing.two,
   },
   pickerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
   pickerSub: {
     fontSize: 13,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     marginTop: 2,
     marginBottom: Spacing.two,
   },
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -367,11 +368,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   pickerRowCount: {
     fontSize: 13,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   pickerActions: {
     flexDirection: 'row',
@@ -385,20 +386,22 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
   },
   cancelText: {
     fontSize: 15,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
+  // Inverted primary pill: ink fill + card-colored text (flips to a light pill
+  // with dark text on the dark canvas).
   compareBtn: {
     flex: 2,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.three,
     borderRadius: 12,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.text,
   },
   compareBtnDisabled: {
     opacity: 0.4,
@@ -406,12 +409,12 @@ const styles = StyleSheet.create({
   compareText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.card,
   },
   // view
   screen: {
     flex: 1,
-    backgroundColor: '#F5F4F0',
+    backgroundColor: t.background,
   },
   fill: {
     flex: 1,
@@ -422,9 +425,9 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingHorizontal: Spacing.two,
     paddingBottom: Spacing.two,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderBottomWidth: 1,
-    borderBottomColor: chartTokens.border,
+    borderBottomColor: t.borderCool,
   },
   backBtn: {
     width: 36,
@@ -439,16 +442,16 @@ const styles = StyleSheet.create({
   },
   crumbOverview: {
     fontSize: 13,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   crumbSep: {
     fontSize: 13,
-    color: chartTokens.axisText,
+    color: t.textTertiary,
   },
   crumbCurrent: {
     fontSize: 15,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   body: {
     padding: Spacing.three,
@@ -468,7 +471,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
   },
   chipDot: {
     width: 8,
@@ -478,13 +481,15 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
+  // Divider between per-topic blocks (was the faint chart gridline #EEECE8);
+  // borderCool keeps a cool hairline that stays visible on the dark canvas.
   topicBlock: {
     gap: Spacing.one,
     paddingTop: Spacing.two,
     borderTopWidth: 1,
-    borderTopColor: chartTokens.gridline,
+    borderTopColor: t.borderCool,
   },
   topicHeader: {
     flexDirection: 'row',
@@ -495,14 +500,14 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 13,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   center: {
     alignItems: 'center',
   },
   noData: {
     fontSize: 12,
-    color: chartTokens.axisText,
+    color: t.textTertiary,
     fontStyle: 'italic',
     paddingVertical: Spacing.two,
   },
@@ -511,21 +516,21 @@ const styles = StyleSheet.create({
   },
   tableHead: {
     borderBottomWidth: 1,
-    borderBottomColor: chartTokens.border,
+    borderBottomColor: t.borderCool,
     marginBottom: 4,
     paddingBottom: 4,
   },
   tableCell: {
     width: 120,
     fontSize: 12,
-    color: chartTokens.text,
+    color: t.text,
     paddingVertical: 4,
     paddingRight: Spacing.two,
   },
   tableMetric: {
     width: 110,
     fontWeight: '600',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   tableHeadText: {
     fontWeight: '700',

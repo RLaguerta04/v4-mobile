@@ -34,10 +34,11 @@ import { AddToTrackerSheet } from '@/components/mediawatch/add-to-tracker-sheet'
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
 import { useSocialTracker } from '@/contexts/social-tracker-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { SocialMention, TrackerMatch } from '@/data/types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -119,7 +120,9 @@ export function MentionCard({
   // provided — the Home feed omits it.
   matchScore?: number;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
   const { isArticleSaved } = useSavedArticles();
   const articleSaved = isArticleSaved(mention.url);
   const [modalVisible, setModalVisible] = useState(false);
@@ -193,7 +196,7 @@ export function MentionCard({
             <View style={[styles.sentimentDot, { backgroundColor: SENTIMENT_DOT[mention.sentiment] }]} />
           </View>
           <Text style={styles.ago} numberOfLines={1}>
-            {mention.ago} · <Ionicons name="time-outline" size={11} color={cardPalette.textSecondary} /> As
+            {mention.ago} · <Ionicons name="time-outline" size={11} color={theme.textSecondary} /> As
             of {formatCapturedAsOf(mention.capturedAt)} · UTC
           </Text>
         </View>
@@ -217,7 +220,7 @@ export function MentionCard({
         <View style={styles.engagementRow}>
           {engagementItems.map((item, i) => (
             <View key={i} style={styles.engagementItem}>
-              <Ionicons name={item.icon} size={15} color={cardPalette.textSecondary} />
+              <Ionicons name={item.icon} size={15} color={theme.textSecondary} />
               <Text style={styles.engagementText}>{formatCount(item.count)}</Text>
             </View>
           ))}
@@ -228,13 +231,13 @@ export function MentionCard({
               <View style={styles.insightsRow}>
                 {mention.estReach !== undefined && (
                   <View style={styles.insightItem}>
-                    <Ionicons name="megaphone-outline" size={13} color={cardPalette.textSecondary} />
+                    <Ionicons name="megaphone-outline" size={13} color={theme.textSecondary} />
                     <Text style={styles.insightText}>{mention.estReach}</Text>
                   </View>
                 )}
                 {mention.engScore !== undefined && (
                   <View style={styles.insightItem}>
-                    <Ionicons name="flash-outline" size={13} color={cardPalette.textSecondary} />
+                    <Ionicons name="flash-outline" size={13} color={theme.textSecondary} />
                     <Text style={styles.insightText}>{mention.engScore}</Text>
                   </View>
                 )}
@@ -267,7 +270,7 @@ export function MentionCard({
         accessibilityRole="button"
         accessibilityLabel="More options"
         style={({ pressed }) => [styles.cardMenuButton, pressed && styles.pressed]}>
-        <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+        <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
       </Pressable>
 
       <Modal
@@ -299,7 +302,7 @@ export function MentionCard({
               <Ionicons
                 name={saved ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color={saved ? accentColor : cardPalette.text}
+                color={saved ? accentColor : theme.text}
               />
               <Text style={styles.sheetRowText}>{saved ? 'Remove bookmark' : 'Save mention'}</Text>
             </Pressable>
@@ -315,7 +318,7 @@ export function MentionCard({
               <Ionicons
                 name={articleSaved ? 'file-tray-full' : 'file-tray-full-outline'}
                 size={20}
-                color={articleSaved ? accentColor : cardPalette.text}
+                color={articleSaved ? accentColor : theme.text}
               />
               <Text style={styles.sheetRowText}>
                 {articleSaved ? 'Move to folder' : 'Add to Saved Articles'}
@@ -333,7 +336,7 @@ export function MentionCard({
               }}
               accessibilityRole="button"
               accessibilityLabel="Share mention">
-              <Ionicons name="share-social-outline" size={20} color={cardPalette.text} />
+              <Ionicons name="share-social-outline" size={20} color={theme.text} />
               <Text style={styles.sheetRowText}>Share</Text>
             </Pressable>
 
@@ -345,7 +348,7 @@ export function MentionCard({
               }}
               accessibilityRole="button"
               accessibilityLabel="Email article">
-              <Ionicons name="mail-outline" size={20} color={cardPalette.text} />
+              <Ionicons name="mail-outline" size={20} color={theme.text} />
               <Text style={styles.sheetRowText}>Email Article</Text>
             </Pressable>
 
@@ -357,7 +360,7 @@ export function MentionCard({
               }}
               accessibilityRole="button"
               accessibilityLabel="Download">
-              <Ionicons name="download-outline" size={20} color={cardPalette.text} />
+              <Ionicons name="download-outline" size={20} color={theme.text} />
               <Text style={styles.sheetRowText}>Download</Text>
             </Pressable>
 
@@ -369,7 +372,7 @@ export function MentionCard({
               }}
               accessibilityRole="button"
               accessibilityLabel="View article details">
-              <Ionicons name="document-text-outline" size={20} color={cardPalette.text} />
+              <Ionicons name="document-text-outline" size={20} color={theme.text} />
               <Text style={styles.sheetRowText}>View Article Details</Text>
             </Pressable>
           </Animated.View>
@@ -414,8 +417,10 @@ function MentionDetailsModal({
   engagementItems: { icon: IoniconName; label: string; count: number }[];
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const { isArticleSaved } = useSavedArticles();
   const tracked = isArticleSaved(mention.url);
 
@@ -498,7 +503,7 @@ function MentionDetailsModal({
               <View style={styles.identityColumn}>
                 <View style={styles.nameLine}>
                   <Text style={styles.handle}>{mention.handle}</Text>
-                  <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                  <Ionicons name="checkmark-circle" size={14} color={theme.info} />
                 </View>
                 <Text style={styles.ago}>
                   {PLATFORM_LABEL[mention.platform]} · {mention.ago}
@@ -511,7 +516,7 @@ function MentionDetailsModal({
                 accessibilityLabel="More actions"
                 hitSlop={8}
                 style={({ pressed }) => pressed && styles.pressed}>
-                <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+                <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
               </Pressable>
             </View>
 
@@ -529,7 +534,7 @@ function MentionDetailsModal({
                 <Ionicons
                   name={trackedCount > 0 ? 'folder-open' : 'folder-outline'}
                   size={13}
-                  color={trackedCount > 0 ? accentColor : cardPalette.textSecondary}
+                  color={trackedCount > 0 ? accentColor : theme.textSecondary}
                 />
                 <Text style={[styles.trackerPillText, trackedCount > 0 && { color: accentColor }]}>
                   {trackedCount > 0 ? `In Tracker · ${trackedCount}` : 'Add to Tracker'}
@@ -547,7 +552,7 @@ function MentionDetailsModal({
             <View style={styles.postStatsRow}>
               {engagementItems.map((item) => (
                 <View key={item.label} style={styles.postStat}>
-                  <Ionicons name={item.icon} size={16} color={cardPalette.textSecondary} />
+                  <Ionicons name={item.icon} size={16} color={theme.textSecondary} />
                   <Text style={styles.postStatCount}>{formatCount(item.count)}</Text>
                   <Text style={styles.postStatLabel}>{item.label}</Text>
                 </View>
@@ -564,7 +569,7 @@ function MentionDetailsModal({
                 right={{ label: 'Engagement Score', value: mention.engScore ?? '—' }}
               />
               <View style={styles.tilesCaption}>
-                <Ionicons name="time-outline" size={13} color={cardPalette.textSecondary} />
+                <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
                 <Text style={styles.detailsMeta}>
                   As of {formatCapturedAsOf(mention.capturedAt)} · UTC
                 </Text>
@@ -652,7 +657,7 @@ function MentionDetailsModal({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Send via email">
-                <Ionicons name="mail-outline" size={20} color={cardPalette.text} />
+                <Ionicons name="mail-outline" size={20} color={theme.text} />
                 <Text style={styles.sheetRowText}>Send via Email</Text>
               </Pressable>
 
@@ -664,7 +669,7 @@ function MentionDetailsModal({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Export as PDF">
-                <Ionicons name="download-outline" size={20} color={cardPalette.text} />
+                <Ionicons name="download-outline" size={20} color={theme.text} />
                 <Text style={styles.sheetRowText}>Export as PDF</Text>
               </Pressable>
 
@@ -676,7 +681,7 @@ function MentionDetailsModal({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="View post">
-                <Ionicons name="open-outline" size={20} color={cardPalette.text} />
+                <Ionicons name="open-outline" size={20} color={theme.text} />
                 <Text style={styles.sheetRowText}>View Post</Text>
               </Pressable>
 
@@ -692,7 +697,7 @@ function MentionDetailsModal({
                 <Ionicons
                   name={tracked ? 'file-tray-full' : 'file-tray-full-outline'}
                   size={20}
-                  color={tracked ? accentColor : cardPalette.text}
+                  color={tracked ? accentColor : theme.text}
                 />
                 <Text style={[styles.sheetRowText, tracked && { color: accentColor }]}>
                   {tracked ? 'Move to folder' : 'Add to Saved Articles'}
@@ -726,6 +731,7 @@ function MentionDetailsModal({
 
 // Key/value meta rows (Platform, Type, Influencer, Est. Reach, Posted).
 function MetaRows({ mention }: { mention: SocialMention }) {
+  const styles = useThemedStyles(makeStyles);
   const rows: { k: string; v: string; sub?: string }[] = [];
   rows.push({ k: 'Platform', v: PLATFORM_LABEL[mention.platform] });
   if (mention.type) rows.push({ k: 'Type', v: mention.type });
@@ -795,6 +801,8 @@ function buildComments(seed: string): SocialComment[] {
 
 // Comments thread for the post card: first 3 shown, rest behind "View all N".
 function CommentsList({ seed }: { seed: string }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const comments = buildComments(seed);
   const [expanded, setExpanded] = useState(false);
   const limit = 3;
@@ -815,7 +823,7 @@ function CommentsList({ seed }: { seed: string }) {
             </Text>
             <Text style={styles.commentText}>{c.text}</Text>
             <View style={styles.commentLike}>
-              <Ionicons name="heart-outline" size={12} color={cardPalette.textSecondary} />
+              <Ionicons name="heart-outline" size={12} color={theme.textSecondary} />
               <Text style={styles.commentLikeCount}>{c.likes}</Text>
             </View>
           </View>
@@ -833,7 +841,7 @@ function CommentsList({ seed }: { seed: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   cardContainer: {
     position: 'relative',
   },
@@ -863,7 +871,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     borderRadius: Spacing.three,
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
     overflow: 'hidden',
   },
   thumbImage: {
@@ -894,7 +902,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: cardPalette.text,
+    color: theme.text,
   },
   sentimentDot: {
     width: 6,
@@ -903,13 +911,13 @@ const styles = StyleSheet.create({
   },
   ago: {
     fontSize: 11,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   postText: {
     fontSize: 17,
     fontWeight: '500',
     lineHeight: 23,
-    color: cardPalette.text,
+    color: theme.text,
   },
   metaRow: {
     flexDirection: 'row',
@@ -936,7 +944,7 @@ const styles = StyleSheet.create({
   insightText: {
     fontSize: 12,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   matchBlock: {
     alignItems: 'flex-end',
@@ -946,24 +954,24 @@ const styles = StyleSheet.create({
   matchText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#16A34A',
+    color: theme.positive,
   },
   matchTextMid: {
-    color: '#D97706',
+    color: theme.warning,
   },
   matchTrack: {
     width: 64,
     height: 3,
     borderRadius: 2,
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
   },
   matchFill: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: '#16A34A',
+    backgroundColor: theme.positive,
   },
   matchFillMid: {
-    backgroundColor: '#D97706',
+    backgroundColor: theme.warning,
   },
   engagementRow: {
     flexDirection: 'row',
@@ -978,7 +986,7 @@ const styles = StyleSheet.create({
   engagementText: {
     fontSize: 12,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   pressed: {
     opacity: 0.5,
@@ -993,10 +1001,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: theme.scrim,
   },
   sheet: {
-    backgroundColor: cardPalette.card,
+    backgroundColor: theme.card,
     borderTopLeftRadius: Spacing.three,
     borderTopRightRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
@@ -1008,7 +1016,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: cardPalette.border,
+    backgroundColor: theme.border,
     marginBottom: Spacing.two,
   },
   sheetRow: {
@@ -1020,11 +1028,11 @@ const styles = StyleSheet.create({
   sheetRowText: {
     fontSize: 15,
     fontWeight: '600',
-    color: cardPalette.text,
+    color: theme.text,
   },
   detailsScreen: {
     flex: 1,
-    backgroundColor: '#FAF8F4',
+    backgroundColor: theme.surfaceWarm,
   },
   fill: {
     flex: 1,
@@ -1035,14 +1043,14 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
-    backgroundColor: cardPalette.card,
+    backgroundColor: theme.card,
     borderBottomWidth: 1,
-    borderBottomColor: cardPalette.border,
+    borderBottomColor: theme.border,
   },
   detailsTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: theme.text,
   },
   detailsBackButton: {
     width: 32,
@@ -1060,7 +1068,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     lineHeight: 24,
-    color: cardPalette.text,
+    color: theme.text,
   },
 
   // "Add to Tracker" pill under the post text — mirrors the MediaWatch article
@@ -1076,13 +1084,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: cardPalette.border,
-    backgroundColor: cardPalette.card,
+    borderColor: theme.border,
+    backgroundColor: theme.card,
   },
   trackerPillText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
 
   // Post-card actions bottom sheet (opened by ···) — overlays the detail modal.
@@ -1099,7 +1107,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     borderRadius: Spacing.three,
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
     overflow: 'hidden',
   },
   // Platform credit overlaid on the post image (e.g. "FACEBOOK"), bottom-right.
@@ -1131,11 +1139,11 @@ const styles = StyleSheet.create({
   postStatCount: {
     fontSize: 14,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: theme.text,
   },
   postStatLabel: {
     fontSize: 13,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
 
   // Comments thread
@@ -1169,16 +1177,16 @@ const styles = StyleSheet.create({
   commentAuthor: {
     fontSize: 13,
     fontWeight: '600',
-    color: cardPalette.text,
+    color: theme.text,
   },
   commentTime: {
     fontSize: 12,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   commentText: {
     fontSize: 14,
     lineHeight: 19,
-    color: cardPalette.text,
+    color: theme.text,
   },
   commentLike: {
     flexDirection: 'row',
@@ -1188,23 +1196,23 @@ const styles = StyleSheet.create({
   },
   commentLikeCount: {
     fontSize: 12,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   commentsMore: {
     fontSize: 13,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   detailsSection: {
     gap: Spacing.one,
     paddingTop: Spacing.two,
     borderTopWidth: 1,
-    borderTopColor: cardPalette.border,
+    borderTopColor: theme.border,
   },
   detailsSectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
     textTransform: 'uppercase',
     marginBottom: Spacing.one,
   },
@@ -1220,15 +1228,15 @@ const styles = StyleSheet.create({
   detailsStatCount: {
     fontSize: 16,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: theme.text,
   },
   detailsStatLabel: {
     fontSize: 11,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   detailsMeta: {
     fontSize: 13,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
 
   // ── Article-detail cards ──
@@ -1251,7 +1259,7 @@ const styles = StyleSheet.create({
   },
   metaKey: {
     fontSize: 13,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
     flexShrink: 0,
   },
   metaValueWrap: {
@@ -1261,12 +1269,12 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: cardPalette.text,
+    color: theme.text,
     textAlign: 'right',
   },
   metaValueSub: {
     fontSize: 11,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
     marginTop: 1,
   },
 
@@ -1283,12 +1291,12 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 15,
     fontWeight: '600',
-    color: cardPalette.text,
+    color: theme.text,
     flexShrink: 1,
   },
   influencerPlatform: {
     fontSize: 12,
-    color: cardPalette.textSecondary,
+    color: theme.textSecondary,
   },
   authorStats: {
     flexDirection: 'row',
@@ -1301,7 +1309,7 @@ const styles = StyleSheet.create({
   authorStatVal: {
     fontSize: 18,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: theme.text,
   },
 
 });

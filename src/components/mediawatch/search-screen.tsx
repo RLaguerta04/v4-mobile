@@ -12,17 +12,17 @@ import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { CollapsibleHeader } from '@/components/collapsible-header';
 import { ArticleCard } from '@/components/mediawatch/article-card';
 import { PageHeading } from '@/components/page-heading';
-import { BottomTabInset, Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace } from '@/data/article-workspace';
 import { buildAuthors, buildPublishers, formatAve } from '@/data/mediawatch-metrics';
-import { newsArticles } from '@/data/mediawatch-articles';
 import type { EntityStat, NewsArticle } from '@/data/mediawatch-types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type GroupType = 'article' | 'publisher' | 'author';
 
-const palette = { background: '#F5F4F0', card: '#FFFFFF', text: '#1A1A1A', textSecondary: '#8A8580', border: '#E7DDCC', chipBg: '#EDE6D8' };
 const TYPE_META: Record<GroupType, { label: string; icon: IoniconName; color: string }> = {
   article: { label: 'Articles', icon: 'newspaper', color: '#2563EB' },
   publisher: { label: 'Publishers', icon: 'business', color: '#0D9488' },
@@ -38,7 +38,10 @@ function matchArticle(a: NewsArticle, q: string): boolean {
 
 export function MediaWatchSearch() {
   const router = useRouter();
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
+  const ws = useArticleWorkspace();
   const { visible: showTop, onScroll: onScrollTop } = useScrollToTop();
   const { hideProgress, onScroll: onHideScroll } = useHideOnScroll();
   const [query, setQuery] = useState('');
@@ -46,15 +49,19 @@ export function MediaWatchSearch() {
   const [headerH, setHeaderH] = useState(140);
   const scrollRef = useRef<ScrollView>(null);
 
-  const publishers = useMemo(() => buildPublishers(newsArticles), []);
-  const authors = useMemo(() => buildAuthors(newsArticles), []);
+  const publishers = useMemo(() => buildPublishers(ws.articles), [ws.articles]);
+  const authors = useMemo(() => buildAuthors(ws.articles), [ws.articles]);
 
   const q = query.trim().toLowerCase();
   const hasQuery = q.length > 0;
 
-  const articleHits = useMemo(() => (hasQuery ? newsArticles.filter((a) => matchArticle(a, q)) : []), [q, hasQuery]);
-  const publisherHits = useMemo(() => (hasQuery ? publishers.filter((p) => p.name.toLowerCase().includes(q)) : []), [q, hasQuery, publishers]);
-  const authorHits = useMemo(() => (hasQuery ? authors.filter((a) => a.name.toLowerCase().includes(q)) : []), [q, hasQuery, authors]);
+  // AdWatch has no Publisher/Author pages, so its search surfaces ads only.
+  const articleHits = useMemo(() => (hasQuery ? ws.articles.filter((a) => matchArticle(a, q)) : []), [ws.articles, q, hasQuery]);
+  const publisherHits = useMemo(() => (hasQuery && !ws.adMode ? publishers.filter((p) => p.name.toLowerCase().includes(q)) : []), [q, hasQuery, publishers, ws.adMode]);
+  const authorHits = useMemo(() => (hasQuery && !ws.adMode ? authors.filter((a) => a.name.toLowerCase().includes(q)) : []), [q, hasQuery, authors, ws.adMode]);
+
+  // The "article" group label follows the workspace noun (Articles / Ads).
+  const groupLabel = (type: GroupType) => (type === 'article' ? ws.Nouns : TYPE_META[type].label);
 
   const groups = useMemo(() => {
     const g: { type: GroupType; count: number }[] = [];
@@ -84,7 +91,7 @@ export function MediaWatchSearch() {
             {entity.count} {entity.count === 1 ? 'article' : 'articles'} · {formatAve(entity.totalAve)}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={palette.textSecondary} />
+        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
       </Pressable>
     );
   }
@@ -116,10 +123,10 @@ export function MediaWatchSearch() {
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
         <CollapsibleHeader progress={hideProgress} onHeightChange={setHeaderH}>
           <View style={styles.header}>
-            <PageHeading title="Search" description="Articles, publishers & authors" />
+            <PageHeading title="Search" description={ws.adMode ? 'Ads, sources & topics' : 'Articles, publishers & authors'} />
           </View>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={palette.textSecondary} />
+            <Ionicons name="search" size={18} color={theme.textSecondary} />
             <TextInput
               value={query}
               onChangeText={(v) => {
@@ -127,7 +134,7 @@ export function MediaWatchSearch() {
                 setActiveType('all');
               }}
               placeholder="Headlines, outlets, authors, topics…"
-              placeholderTextColor={palette.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               style={styles.input}
               autoCapitalize="none"
               autoCorrect={false}
@@ -135,7 +142,7 @@ export function MediaWatchSearch() {
             />
             {query.length > 0 && (
               <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
-                <Ionicons name="close-circle" size={18} color={palette.textSecondary} />
+                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
               </Pressable>
             )}
           </View>
@@ -143,7 +150,7 @@ export function MediaWatchSearch() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
               <TypeChip label="All" count={total} active={activeType === 'all'} onPress={() => setActiveType('all')} />
               {groups.map((g) => (
-                <TypeChip key={g.type} label={TYPE_META[g.type].label} count={g.count} active={activeType === g.type} onPress={() => setActiveType(g.type)} />
+                <TypeChip key={g.type} label={groupLabel(g.type)} count={g.count} active={activeType === g.type} onPress={() => setActiveType(g.type)} />
               ))}
             </ScrollView>
           )}
@@ -166,16 +173,20 @@ export function MediaWatchSearch() {
               <View style={styles.suggestWrap}>
                 {SUGGESTIONS.map((s) => (
                   <Pressable key={s} onPress={() => setQuery(s)} accessibilityRole="button" style={({ pressed }) => [styles.suggestChip, pressed && styles.pressed]}>
-                    <Ionicons name="sparkles-outline" size={13} color={palette.textSecondary} />
+                    <Ionicons name="sparkles-outline" size={13} color={theme.textSecondary} />
                     <Text style={styles.suggestText}>{s}</Text>
                   </Pressable>
                 ))}
               </View>
-              <Text style={styles.initialHint}>Search across news articles, publishers, and authors in MediaWatch.</Text>
+              <Text style={styles.initialHint}>
+                {ws.adMode
+                  ? 'Search across ad placements, topics, and sources in AdWatch.'
+                  : 'Search across news articles, publishers, and authors in MediaWatch.'}
+              </Text>
             </View>
           ) : total === 0 ? (
             <View style={styles.emptyWrap}>
-              <Ionicons name="search" size={30} color={palette.textSecondary} />
+              <Ionicons name="search" size={30} color={theme.textSecondary} />
               <Text style={styles.emptyText}>No results for “{query.trim()}”.</Text>
               <Text style={styles.emptyHint}>Try a shorter or different keyword.</Text>
             </View>
@@ -187,7 +198,7 @@ export function MediaWatchSearch() {
                 <View key={g.type} style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name={meta.icon} size={14} color={meta.color} />
-                    <Text style={styles.sectionTitle}>{meta.label}</Text>
+                    <Text style={styles.sectionTitle}>{groupLabel(g.type)}</Text>
                     <View style={[styles.sectionCount, { backgroundColor: `${meta.color}1A` }]}>
                       <Text style={[styles.sectionCountText, { color: meta.color }]}>{g.count}</Text>
                     </View>
@@ -214,6 +225,7 @@ export function MediaWatchSearch() {
 }
 
 function TypeChip({ label, count, active, onPress }: { label: string; count: number; active: boolean; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
@@ -224,45 +236,46 @@ function TypeChip({ label, count, active, onPress }: { label: string; count: num
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.background },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   safeArea: { flex: 1 },
   scroll: { flex: 1 },
   header: { paddingHorizontal: Spacing.four, paddingTop: Spacing.two, paddingBottom: Spacing.two },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginHorizontal: Spacing.four, marginBottom: Spacing.two, paddingHorizontal: Spacing.three, height: 44, borderRadius: Spacing.three, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border },
-  input: { flex: 1, fontSize: 15, color: palette.text },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginHorizontal: Spacing.four, marginBottom: Spacing.two, paddingHorizontal: Spacing.three, height: 44, borderRadius: Spacing.three, backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder },
+  input: { flex: 1, fontSize: 15, color: t.text },
   chipRow: { gap: Spacing.one + 2, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: Spacing.two + 2, paddingRight: 6, paddingVertical: 5, borderRadius: 999, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border },
-  chipActive: { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' },
-  chipText: { fontSize: 13, fontWeight: '600', color: palette.text },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: Spacing.two + 2, paddingRight: 6, paddingVertical: 5, borderRadius: 999, backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder },
+  // Active type chip — near-black fill with white text in both schemes (no inverse-button token); kept literal.
+  chipActive: { backgroundColor: t.inverse, borderColor: t.inverse },
+  chipText: { fontSize: 13, fontWeight: '600', color: t.text },
   chipTextActive: { color: '#FFFFFF' },
-  chipCount: { minWidth: 18, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 999, backgroundColor: palette.chipBg, alignItems: 'center' },
+  chipCount: { minWidth: 18, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 999, backgroundColor: t.track, alignItems: 'center' },
   chipCountActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
-  chipCountText: { fontSize: 11, fontWeight: '700', color: palette.textSecondary },
+  chipCountText: { fontSize: 11, fontWeight: '700', color: t.textSecondary },
   chipCountTextActive: { color: '#FFFFFF' },
   content: { paddingHorizontal: Spacing.four, paddingBottom: BottomTabInset + Spacing.four, gap: Spacing.four },
   section: { gap: Spacing.two },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: palette.text, textTransform: 'uppercase', letterSpacing: 0.4 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: t.text, textTransform: 'uppercase', letterSpacing: 0.4 },
   sectionCount: { minWidth: 18, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 999, alignItems: 'center' },
   sectionCountText: { fontSize: 11, fontWeight: '700' },
   spacer: { flex: 1 },
   seeAll: { fontSize: 12, fontWeight: '700' },
   postList: { gap: Spacing.four },
   rowList: { gap: Spacing.two },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two + 2, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two + 2, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder, borderRadius: 14 },
   rowIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   rowMain: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: 15, fontWeight: '700', color: palette.text },
-  rowSub: { fontSize: 12, color: palette.textSecondary },
+  rowTitle: { fontSize: 15, fontWeight: '700', color: t.text },
+  rowSub: { fontSize: 12, color: t.textSecondary },
   pressed: { opacity: 0.6 },
   emptyWrap: { alignItems: 'center', gap: Spacing.two, paddingTop: Spacing.six },
-  emptyText: { fontSize: 15, fontWeight: '600', color: palette.text },
-  emptyHint: { fontSize: 13, color: palette.textSecondary },
+  emptyText: { fontSize: 15, fontWeight: '600', color: t.text },
+  emptyHint: { fontSize: 13, color: t.textSecondary },
   initial: { gap: Spacing.three, paddingTop: Spacing.two },
-  initialLabel: { fontSize: 12, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+  initialLabel: { fontSize: 12, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
   suggestWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  suggestChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 3, borderRadius: 999, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border },
-  suggestText: { fontSize: 13, fontWeight: '600', color: palette.text },
-  initialHint: { fontSize: 13, lineHeight: 19, color: palette.textSecondary, marginTop: Spacing.two },
+  suggestChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 3, borderRadius: 999, backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder },
+  suggestText: { fontSize: 13, fontWeight: '600', color: t.text },
+  initialHint: { fontSize: 13, lineHeight: 19, color: t.textSecondary, marginTop: Spacing.two },
 });

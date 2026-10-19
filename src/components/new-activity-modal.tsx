@@ -11,17 +11,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme, useThemeMode } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { ActivityType, TrackerActivity } from '@/data/types';
-
-const palette = {
-  background: '#FAF8F4',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-  accent: '#1A1A1A',
-};
 
 const TYPES: ActivityType[] = ['Press Release', 'Crisis', 'Product', 'Trending', 'Event'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -42,6 +35,13 @@ export function NewActivityModal({
   onClose: () => void;
   onCreate: (activity: Omit<TrackerActivity, 'id'>) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  // The primary "Create" + selected type chip are a fixed near-black fill in
+  // light; on the dark canvas that would vanish, so they take the view accent
+  // (which carries white text in both schemes) instead.
+  const accentColor = useAccentColor();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [type, setType] = useState<ActivityType>('Product');
@@ -81,7 +81,7 @@ export function NewActivityModal({
             accessibilityRole="button"
             accessibilityLabel="Cancel"
             style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}>
-            <Ionicons name="close" size={24} color={palette.text} />
+            <Ionicons name="close" size={24} color={theme.text} />
           </Pressable>
           <Text style={styles.headerTitle}>New Activity</Text>
           <Pressable
@@ -91,6 +91,7 @@ export function NewActivityModal({
             accessibilityState={{ disabled: !canSave }}
             style={({ pressed }) => [
               styles.saveBtn,
+              isDark && { backgroundColor: accentColor },
               !canSave && styles.saveBtnDisabled,
               pressed && canSave && styles.pressed,
             ]}>
@@ -105,7 +106,7 @@ export function NewActivityModal({
               value={title}
               onChangeText={setTitle}
               placeholder="e.g. Atto 2 — City EV Launch"
-              placeholderTextColor={palette.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               style={styles.input}
             />
           </View>
@@ -121,7 +122,11 @@ export function NewActivityModal({
                     onPress={() => setType(t)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
-                    style={[styles.typeChip, on && styles.typeChipOn]}>
+                    style={[
+                      styles.typeChip,
+                      on && styles.typeChipOn,
+                      on && isDark && { backgroundColor: accentColor, borderColor: accentColor },
+                    ]}>
                     <Text style={[styles.typeChipText, on && styles.typeChipTextOn]}>{t}</Text>
                   </Pressable>
                 );
@@ -135,7 +140,7 @@ export function NewActivityModal({
               value={description}
               onChangeText={setDescription}
               placeholder="What is this activity tracking?"
-              placeholderTextColor={palette.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               style={[styles.input, styles.textarea]}
               multiline
             />
@@ -150,10 +155,10 @@ export function NewActivityModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.surfaceWarm,
   },
   header: {
     flexDirection: 'row',
@@ -161,9 +166,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   headerBtn: {
     width: 32,
@@ -175,16 +180,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   saveBtn: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + 2,
     borderRadius: 999,
-    backgroundColor: palette.accent,
+    // Near-black in light; the dark scheme overrides this to the view accent
+    // inline (a near-black fill would disappear on the dark canvas).
+    backgroundColor: t.inverse,
   },
   saveBtnDisabled: {
-    backgroundColor: palette.border,
+    backgroundColor: t.elevated,
   },
   saveText: {
     fontSize: 14,
@@ -192,7 +199,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   saveTextDisabled: {
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   pressed: {
     opacity: 0.6,
@@ -208,19 +215,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   input: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   textarea: {
     minHeight: 96,
@@ -233,20 +240,21 @@ const styles = StyleSheet.create({
   },
   typeChip: {
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + 2,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
   },
   typeChipOn: {
-    backgroundColor: palette.accent,
-    borderColor: palette.accent,
+    // Light: near-black fill (dark scheme swaps to the view accent inline).
+    backgroundColor: t.inverse,
+    borderColor: t.inverse,
   },
   typeChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   typeChipTextOn: {
     color: '#FFFFFF',
@@ -254,6 +262,6 @@ const styles = StyleSheet.create({
   note: {
     fontSize: 12,
     lineHeight: 17,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 });

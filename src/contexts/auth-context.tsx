@@ -25,7 +25,7 @@ export const VIEW_ACCENT_COLORS: Record<AppView, string> = {
 export const VIEW_ICON: Record<AppView, IoniconName> = {
   MediaWatch: 'newspaper',
   SharedView: 'chatbubbles',
-  AdWatch: 'megaphone',
+  AdWatch: 'easel',
 };
 
 interface AuthContextValue {

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { useThemeMode } from '@/contexts/theme-context';
 import { buildPdfViewerHtml } from '@/utils/pdf-viewer-html';
 
 export type PdfFrameProps = {
@@ -24,13 +25,14 @@ export type PdfFrameProps = {
 
 export function PdfFrame({ uri, style, scrollEnabled = true, onLoadEnd, onError }: PdfFrameProps) {
   const [html, setHtml] = useState<string | null>(null);
+  const { isDark } = useThemeMode();
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         const base64 = await new File(uri).base64();
-        if (active) setHtml(buildPdfViewerHtml(base64, { allPages: scrollEnabled }));
+        if (active) setHtml(buildPdfViewerHtml(base64, { allPages: scrollEnabled, isDark }));
       } catch {
         if (active) onError?.();
       }
@@ -39,7 +41,7 @@ export function PdfFrame({ uri, style, scrollEnabled = true, onLoadEnd, onError 
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uri, scrollEnabled]);
+  }, [uri, scrollEnabled, isDark]);
 
   // Parent shows its own spinner until onLoadEnd fires, so render nothing yet.
   if (!html) return null;

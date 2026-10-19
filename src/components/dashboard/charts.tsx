@@ -19,7 +19,8 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-import { chartTokens } from '@/components/dashboard/palette';
+import { useChartTokens } from '@/components/dashboard/palette';
+import { useTheme, useThemeMode } from '@/contexts/theme-context';
 
 // Tap handling for react-native-svg elements, which differs by platform:
 //  • Native — `onPress` is the real tap handler.
@@ -72,6 +73,12 @@ export function BarLineChart({
   selectedIndex?: number | null;
   onSelectBar?: (i: number) => void;
 }) {
+  const chartTokens = useChartTokens();
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  // Zebra day stripes are a faint ink wash in light; on the dark canvas a dark
+  // wash would vanish, so flip to a low-alpha white.
+  const zebraFill = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(24,29,38,0.04)';
   const padL = 30;
   const padR = 12;
   const padT = 16;
@@ -117,7 +124,7 @@ export function BarLineChart({
             y={padT}
             width={step}
             height={plotH}
-            fill="rgba(24,29,38,0.04)"
+            fill={zebraFill}
           />
         ) : null,
       )}
@@ -138,7 +145,7 @@ export function BarLineChart({
         </Fragment>
       ))}
       {/* story-value band */}
-      {bandPath ? <Path d={bandPath} fill="#b9a4f7" fillOpacity={0.22} /> : null}
+      {bandPath ? <Path d={bandPath} fill={chartTokens.storyValue} fillOpacity={0.22} /> : null}
       {/* bars */}
       {data.map((d, i) => {
         const dim = selectedIndex != null && selectedIndex !== i;
@@ -156,19 +163,20 @@ export function BarLineChart({
           />
         );
       })}
-      {/* projected-average dashed line */}
+      {/* projected-average dashed line — neutral reference line (t.neutral is
+          #9CA3AF in light, a lighter grey on dark so it stays visible) */}
       {n > 1 ? (
         <Polyline
           points={projPts}
           fill="none"
-          stroke="#9ca3af"
+          stroke={theme.neutral}
           strokeWidth={1.5}
           strokeDasharray="4 3"
         />
       ) : null}
       {/* story-value line + dots */}
       {n > 1 ? (
-        <Polyline points={linePts} fill="none" stroke="#b9a4f7" strokeWidth={1.75} />
+        <Polyline points={linePts} fill="none" stroke={chartTokens.storyValue} strokeWidth={1.75} />
       ) : null}
       {data.map((d, i) => (
         <Circle
@@ -176,8 +184,8 @@ export function BarLineChart({
           cx={x(i)}
           cy={ySv(d.storyValue)}
           r={3}
-          fill="#b9a4f7"
-          stroke="#fff"
+          fill={chartTokens.storyValue}
+          stroke={theme.card}
           strokeWidth={1}
         />
       ))}
@@ -225,6 +233,7 @@ export function Histogram({
   xLabel?: string;
   yLabel?: string;
 }) {
+  const chartTokens = useChartTokens();
   const padL = 28;
   const padR = 10;
   const padT = 16;
@@ -327,6 +336,7 @@ export function StackedTimeBar({
   selectedIndex?: number | null;
   onSelectBar?: (i: number) => void;
 }) {
+  const chartTokens = useChartTokens();
   const padL = 24;
   const padR = 10;
   const padT = 12;
@@ -421,6 +431,8 @@ export function ScatterPlot({
   yMax?: number;
   onSelectPoint?: (i: number) => void;
 }) {
+  const chartTokens = useChartTokens();
+  const theme = useTheme();
   const padL = 34;
   const padR = 14;
   const padT = 14;
@@ -459,7 +471,7 @@ export function ScatterPlot({
           r={p.r}
           fill={p.color}
           fillOpacity={0.72}
-          stroke="#fff"
+          stroke={theme.card}
           strokeWidth={1}
           {...svgPress(onSelectPoint ? () => onSelectPoint(i) : undefined)}
         />
@@ -506,6 +518,7 @@ export function SwimlaneScatter({
   height?: number;
   onSelectLane?: (i: number) => void;
 }) {
+  const chartTokens = useChartTokens();
   const padL = 86;
   const padR = 12;
   const padT = 22;
@@ -609,6 +622,7 @@ export function Donut({
   selectedIndex?: number | null;
   onSelectSlice?: (i: number) => void;
 }) {
+  const chartTokens = useChartTokens();
   const cx = size / 2;
   const cy = size / 2;
   const rO = size / 2 - 2;

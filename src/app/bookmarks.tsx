@@ -8,23 +8,17 @@ import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { CollapsibleHeader } from '@/components/collapsible-header';
 import { PageHeading } from '@/components/page-heading';
 import { SavedUrlCard } from '@/components/saved-url-card';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
 import { SocialPlatform } from '@/data/types';
 import { platformLabel } from '@/utils/influencers';
 import { resolveSavedUrls, SavedItem } from '@/utils/saved-resolve';
 
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-  chipBg: '#EDE6D8',
-};
-
 export default function BookmarksScreen() {
+  const styles = useThemedStyles(makeStyles);
   const { savedUrls } = useBookmarks();
   const [activePlatform, setActivePlatform] = useState<SocialPlatform | null>(null);
   const listRef = useRef<FlatList>(null);
@@ -131,6 +125,7 @@ function Chip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -147,10 +142,12 @@ function Chip({
 }
 
 function EmptyState() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Ionicons name="bookmark-outline" size={30} color={palette.textSecondary} />
+        <Ionicons name="bookmark-outline" size={30} color={theme.textSecondary} />
       </View>
       <Text style={styles.emptyTitle}>No bookmarks yet</Text>
       <Text style={styles.emptyText}>
@@ -161,10 +158,10 @@ function EmptyState() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -187,13 +184,13 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
   },
   chipActive: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
+    backgroundColor: t.inverse,
+    borderColor: t.inverse,
   },
   chipIcon: {
     width: 15,
@@ -203,7 +200,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   chipTextActive: {
     color: '#FFFFFF',
@@ -213,7 +210,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 999,
-    backgroundColor: palette.chipBg,
+    backgroundColor: t.track,
     alignItems: 'center',
   },
   chipCountActive: {
@@ -222,7 +219,7 @@ const styles = StyleSheet.create({
   chipCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   chipCountTextActive: {
     color: '#FFFFFF',
@@ -242,9 +239,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.one,
@@ -252,12 +249,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   emptyText: {
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 });

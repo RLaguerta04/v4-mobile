@@ -12,8 +12,10 @@ import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { ArticleCard } from '@/components/mediawatch/article-card';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { adwatchAds } from '@/data/adwatch-ads';
 import { newsArticles } from '@/data/mediawatch-articles';
 import { ArticleKeyword, computeArticleKeywords } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
@@ -22,14 +24,6 @@ import { buildTimeline, formatPhp, ResolvedActivity, TimelineStage } from '@/uti
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type TabKey = 'matches' | 'timeline' | 'keywords';
-
-const palette = {
-  background: '#FAF8F4',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-};
 
 const DETAIL_TABS: { key: TabKey; label: string; icon: IoniconName }[] = [
   { key: 'matches', label: 'Matched articles', icon: 'list-outline' },
@@ -53,7 +47,9 @@ const TL_ICON: Record<TimelineStage['kind'], IoniconName> = {
 const KW_PALETTE = ['#6B5CB8', '#D946EF', '#F97316', '#0EA5E9', '#14B8A6', '#16A34A', '#EC4899'];
 
 function resolveArticle(title: string): NewsArticle | undefined {
-  return newsArticles.find((a) => a.title === title);
+  // Titles are unique across the two article workspaces, so a tracked match
+  // resolves from whichever dataset carries it (MediaWatch news or AdWatch ads).
+  return newsArticles.find((a) => a.title === title) ?? adwatchAds.find((a) => a.title === title);
 }
 
 function buildSummary(activity: ResolvedActivity): { gist: string; read: string } {
@@ -79,7 +75,9 @@ export function ArticleActivityDetailModal({
   activity: ResolvedActivity | null;
   onClose: () => void;
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
   const [tab, setTab] = useState<TabKey>('matches');
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -179,7 +177,7 @@ export function ArticleActivityDetailModal({
                         accessibilityRole="tab"
                         accessibilityState={{ selected: on }}
                         style={[styles.tab, on && styles.tabActive]}>
-                        <Ionicons name={t.icon} size={15} color={on ? palette.text : palette.textSecondary} />
+                        <Ionicons name={t.icon} size={15} color={on ? theme.text : theme.textSecondary} />
                         <Text style={[styles.tabText, on && styles.tabTextActive]}>
                           {t.label}
                           {t.key === 'matches' ? ` (${activity.matchCount})` : ''}
@@ -197,7 +195,7 @@ export function ArticleActivityDetailModal({
                       onPress={openSummary}
                       accessibilityRole="button"
                       style={({ pressed }) => [styles.action, summaryOpen && styles.actionActive, pressed && styles.pressed]}>
-                      <Ionicons name="sparkles-outline" size={15} color={summaryOpen ? accentColor : palette.text} />
+                      <Ionicons name="sparkles-outline" size={15} color={summaryOpen ? accentColor : theme.text} />
                       <Text style={[styles.actionText, summaryOpen && { color: accentColor }]}>AI summary</Text>
                     </Pressable>
                     <Pressable
@@ -205,7 +203,7 @@ export function ArticleActivityDetailModal({
                       accessibilityRole="button"
                       accessibilityLabel="Export activity"
                       style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
-                      <Ionicons name="download-outline" size={15} color={palette.text} />
+                      <Ionicons name="download-outline" size={15} color={theme.text} />
                       <Text style={styles.actionText}>Export</Text>
                     </Pressable>
                   </View>
@@ -218,7 +216,7 @@ export function ArticleActivityDetailModal({
                           <Text style={styles.summaryLabelText}>AI Summary</Text>
                         </View>
                         <Pressable onPress={() => setSummaryOpen(false)} accessibilityRole="button" accessibilityLabel="Hide summary" hitSlop={8} style={({ pressed }) => pressed && styles.pressed}>
-                          <Ionicons name="close" size={16} color={palette.textSecondary} />
+                          <Ionicons name="close" size={16} color={theme.textSecondary} />
                         </Pressable>
                       </View>
                       {summaryLoading || !summary ? (
@@ -278,6 +276,8 @@ export function ArticleActivityDetailModal({
 }
 
 function Timeline({ activity }: { activity: ResolvedActivity }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const stages = buildTimeline(activity);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (k: string) =>
@@ -298,7 +298,7 @@ function Timeline({ activity }: { activity: ResolvedActivity }) {
           <View key={stage.key} style={styles.tlRow}>
             <View style={styles.tlRail}>
               <View style={[styles.tlNode, stage.kind === 'total' && styles.tlNodeAccent]}>
-                <Ionicons name={icon} size={13} color={stage.kind === 'total' ? '#FFFFFF' : palette.text} />
+                <Ionicons name={icon} size={13} color={stage.kind === 'total' ? '#FFFFFF' : theme.text} />
               </View>
               {i < stages.length - 1 && <View style={styles.tlLine} />}
             </View>
@@ -312,7 +312,7 @@ function Timeline({ activity }: { activity: ResolvedActivity }) {
                   {stage.sub && <Text style={styles.tlSub}>{stage.sub}</Text>}
                   {stage.meta && <Text style={styles.tlMeta}>{stage.meta}</Text>}
                 </View>
-                {expandable && <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={palette.textSecondary} />}
+                {expandable && <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />}
               </Pressable>
               {open && expandable && (
                 <View style={styles.tlPosts}>
@@ -338,6 +338,7 @@ function Timeline({ activity }: { activity: ResolvedActivity }) {
 }
 
 function KeywordCloud({ articles }: { articles: NewsArticle[] }) {
+  const styles = useThemedStyles(makeStyles);
   const keywords = computeArticleKeywords(articles);
   const [coverageKw, setCoverageKw] = useState<ArticleKeyword | null>(null);
   if (!keywords.length) {
@@ -374,6 +375,7 @@ function KeywordCloud({ articles }: { articles: NewsArticle[] }) {
 }
 
 function CoverageModal({ keyword, onClose }: { keyword: ArticleKeyword | null; onClose: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const scrollRef = useRef<ScrollView>(null);
   const { visible: showTop, onScroll: onScrollTop, reset: resetTop } = useScrollToTop();
   useEffect(() => {
@@ -419,15 +421,15 @@ function CoverageModal({ keyword, onClose }: { keyword: ArticleKeyword | null; o
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.background },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.surfaceWarm },
   fill: { flex: 1 },
   body: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.six, gap: Spacing.three },
   pressed: { opacity: 0.6 },
-  card: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: Spacing.three, padding: Spacing.three, gap: 6 },
-  activityType: { fontSize: 12, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
-  activityTitle: { fontSize: 18, fontWeight: '700', lineHeight: 24, color: palette.text },
-  activityDesc: { fontSize: 14, lineHeight: 20, color: palette.textSecondary },
+  card: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder, borderRadius: Spacing.three, padding: Spacing.three, gap: 6 },
+  activityType: { fontSize: 12, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+  activityTitle: { fontSize: 18, fontWeight: '700', lineHeight: 24, color: t.text },
+  activityDesc: { fontSize: 14, lineHeight: 20, color: t.textSecondary },
   kpiRow: { flexDirection: 'row', gap: Spacing.two },
   kpiCard: { flex: 1, borderRadius: Spacing.three, paddingHorizontal: Spacing.two, paddingVertical: Spacing.three, gap: 4, justifyContent: 'center' },
   kpiPurple: { backgroundColor: '#7C3AED' },
@@ -436,50 +438,50 @@ const styles = StyleSheet.create({
   kpiValue: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
   kpiLabel: { fontSize: 11, color: 'rgba(255, 255, 255, 0.85)' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 999, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.card },
-  actionActive: { backgroundColor: '#EDE6D8' },
-  actionText: { fontSize: 13, fontWeight: '600', color: palette.text },
-  summaryPanel: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: Spacing.two, padding: Spacing.three, gap: 6 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 999, borderWidth: 1, borderColor: t.border, backgroundColor: t.card },
+  actionActive: { backgroundColor: t.track },
+  actionText: { fontSize: 13, fontWeight: '600', color: t.text },
+  summaryPanel: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder, borderRadius: Spacing.two, padding: Spacing.three, gap: 6 },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  summaryLabelText: { fontSize: 12, fontWeight: '700', color: palette.text, textTransform: 'uppercase', letterSpacing: 0.4 },
+  summaryLabelText: { fontSize: 12, fontWeight: '700', color: t.text, textTransform: 'uppercase', letterSpacing: 0.4 },
   summaryLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  summaryLoadingText: { fontSize: 13, color: palette.textSecondary },
-  summarySub: { fontSize: 11, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
-  summaryText: { fontSize: 13, lineHeight: 19, color: palette.text },
-  sectionLabel: { fontSize: 12, fontWeight: '700', color: palette.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: Spacing.two },
-  empty: { fontSize: 13, color: palette.textSecondary, paddingVertical: Spacing.four, textAlign: 'center' },
-  tabBar: { backgroundColor: palette.background, borderBottomWidth: 1, borderBottomColor: palette.border },
+  summaryLoadingText: { fontSize: 13, color: t.textSecondary },
+  summarySub: { fontSize: 11, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
+  summaryText: { fontSize: 13, lineHeight: 19, color: t.text },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: Spacing.two },
+  empty: { fontSize: 13, color: t.textSecondary, paddingVertical: Spacing.four, textAlign: 'center' },
+  tabBar: { backgroundColor: t.surfaceWarm, borderBottomWidth: 1, borderBottomColor: t.border },
   tabBarInner: { flexDirection: 'row', gap: Spacing.three },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: Spacing.two, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: palette.text },
-  tabText: { fontSize: 13, fontWeight: '600', color: palette.textSecondary },
-  tabTextActive: { color: palette.text },
+  tabActive: { borderBottomColor: t.text },
+  tabText: { fontSize: 13, fontWeight: '600', color: t.textSecondary },
+  tabTextActive: { color: t.text },
   covList: { gap: Spacing.five },
-  matchRow: { backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: Spacing.three, gap: 3 },
-  matchOutlet: { fontSize: 12, fontWeight: '700', color: palette.text },
-  matchTitle: { fontSize: 14, lineHeight: 19, color: palette.text },
-  matchMeta: { fontSize: 11, color: palette.textSecondary },
+  matchRow: { backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder, borderRadius: 12, padding: Spacing.three, gap: 3 },
+  matchOutlet: { fontSize: 12, fontWeight: '700', color: t.text },
+  matchTitle: { fontSize: 14, lineHeight: 19, color: t.text },
+  matchMeta: { fontSize: 11, color: t.textSecondary },
   timeline: { marginTop: Spacing.one },
   tlRow: { flexDirection: 'row', gap: Spacing.two },
   tlRail: { width: 28, alignItems: 'center' },
-  tlNode: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.card, alignItems: 'center', justifyContent: 'center' },
+  tlNode: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center' },
   tlNodeAccent: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  tlLine: { flex: 1, width: 2, backgroundColor: palette.border, marginVertical: 2 },
+  tlLine: { flex: 1, width: 2, backgroundColor: t.border, marginVertical: 2 },
   tlCardWrap: { flex: 1, paddingBottom: Spacing.three },
-  tlCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: Spacing.three },
+  tlCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, backgroundColor: t.card, borderWidth: 1, borderColor: t.cardBorder, borderRadius: 12, padding: Spacing.three },
   tlCardMain: { flex: 1, gap: 2 },
-  tlTitle: { fontSize: 14, fontWeight: '700', color: palette.text },
-  tlSub: { fontSize: 12, color: palette.textSecondary },
-  tlMeta: { fontSize: 12, fontWeight: '600', color: '#16A34A' },
+  tlTitle: { fontSize: 14, fontWeight: '700', color: t.text },
+  tlSub: { fontSize: 12, color: t.textSecondary },
+  tlMeta: { fontSize: 12, fontWeight: '600', color: t.positive },
   tlPosts: { gap: Spacing.two, paddingTop: Spacing.two },
-  tlPost: { gap: 2, borderLeftWidth: 2, borderLeftColor: palette.border, paddingLeft: Spacing.two },
-  tlPostHandle: { fontSize: 12, fontWeight: '700', color: palette.text },
-  tlPostText: { fontSize: 12, lineHeight: 16, color: palette.text },
-  tlPostMeta: { fontSize: 11, color: palette.textSecondary },
+  tlPost: { gap: 2, borderLeftWidth: 2, borderLeftColor: t.border, paddingLeft: Spacing.two },
+  tlPostHandle: { fontSize: 12, fontWeight: '700', color: t.text },
+  tlPostText: { fontSize: 12, lineHeight: 16, color: t.text },
+  tlPostMeta: { fontSize: 11, color: t.textSecondary },
   kwCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, alignItems: 'center', justifyContent: 'center' },
   kwChip: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   kwChipText: { fontWeight: '700' },
-  covKw: { fontSize: 24, fontWeight: '800', color: palette.text },
-  covCount: { fontSize: 13, color: palette.textSecondary, marginTop: 2 },
+  covKw: { fontSize: 24, fontWeight: '800', color: t.text },
+  covCount: { fontSize: 13, color: t.textSecondary, marginTop: 2 },
 });

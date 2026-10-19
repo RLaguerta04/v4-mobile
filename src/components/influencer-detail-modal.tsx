@@ -18,8 +18,10 @@ import { EntitiesTreemap } from '@/components/dashboard/treemap';
 import { MentionCard } from '@/components/mention-card';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
 import { useBookmarks } from '@/contexts/bookmarks-context';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { buildEntitiesMap } from '@/data/dashboard-metrics';
 import {
   buildInfluencerPerformance,
@@ -31,16 +33,6 @@ import {
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type TabKey = 'posts' | 'performance' | 'entities';
-
-const palette = {
-  background: '#FAF8F4',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-  track: '#EFEDE8',
-  accent: '#6B4DE8',
-};
 
 const DETAIL_TABS: { key: TabKey; label: string; icon: IoniconName }[] = [
   { key: 'posts', label: 'Posts', icon: 'list-outline' },
@@ -55,6 +47,8 @@ export function InfluencerDetailModal({
   influencer: Influencer | null;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const [tab, setTab] = useState<TabKey>('posts');
 
   function handleClose() {
@@ -130,7 +124,7 @@ export function InfluencerDetailModal({
                       <Ionicons
                         name={t.icon}
                         size={15}
-                        color={on ? palette.text : palette.textSecondary}
+                        color={on ? theme.text : theme.textSecondary}
                       />
                       <Text style={[styles.tabText, on && styles.tabTextActive]}>{t.label}</Text>
                     </Pressable>
@@ -152,6 +146,7 @@ export function InfluencerDetailModal({
 
 // ── Posts tab: the influencer's own posts, as home-feed cards ──
 function PostsTab({ influencer }: { influencer: Influencer }) {
+  const styles = useThemedStyles(makeStyles);
   const { isSaved, toggleSave } = useBookmarks();
   if (!influencer.posts.length) {
     return <Text style={styles.empty}>No posts yet.</Text>;
@@ -180,6 +175,7 @@ const LEGEND: { kind: 'band' | 'bar' | 'line'; color: string; label: string }[] 
 ];
 
 function PerformanceTab({ influencer }: { influencer: Influencer }) {
+  const styles = useThemedStyles(makeStyles);
   const [days, setDays] = useState(7);
   const [width, setWidth] = useState(0);
   const data = buildInfluencerPerformance(influencer, days);
@@ -230,6 +226,7 @@ function PerformanceTab({ influencer }: { influencer: Influencer }) {
 
 // ── Entities tab: what this influencer talks about ──
 function EntitiesTab({ influencer }: { influencer: Influencer }) {
+  const styles = useThemedStyles(makeStyles);
   const tiles = buildEntitiesMap(influencer.posts);
   if (!tiles.length) {
     return <Text style={styles.empty}>No entities detected.</Text>;
@@ -242,10 +239,10 @@ function EntitiesTab({ influencer }: { influencer: Influencer }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.surfaceWarm,
   },
   fill: {
     flex: 1,
@@ -256,9 +253,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.two,
     paddingBottom: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   backButton: {
     width: 36,
@@ -269,7 +266,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   pressed: {
     opacity: 0.6,
@@ -292,11 +289,11 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 19,
     fontWeight: '800',
-    color: palette.text,
+    color: t.text,
   },
   profileSub: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   kpiGrid: {
@@ -311,24 +308,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.two,
     borderRadius: 12,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
   },
   kpiValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: palette.text,
+    color: t.text,
   },
   kpiLabel: {
     fontSize: 11,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   tabBar: {
-    backgroundColor: palette.background,
+    backgroundColor: t.surfaceWarm,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   tabRow: {
     flexDirection: 'row',
@@ -344,20 +341,20 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: palette.text,
+    borderBottomColor: t.text,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   tabTextActive: {
-    color: palette.text,
+    color: t.text,
   },
 
   empty: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingVertical: Spacing.five,
   },
 
@@ -373,7 +370,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -385,26 +382,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
   },
+  // Lilac highlight for the selected range pill — kept as a fixed pastel tint
+  // (self-contained, like the calendar range highlight); reads as a bright
+  // chip on the dark surface rather than theming away.
   rangePillOn: {
     backgroundColor: '#EFEAFB',
-    borderColor: palette.accent,
+    borderColor: '#6B4DE8',
   },
   rangeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   rangeTextOn: {
-    color: palette.accent,
+    color: '#6B4DE8',
   },
   chartCard: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: Spacing.two,
     padding: Spacing.two,
   },
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   // Entities

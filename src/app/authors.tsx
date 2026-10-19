@@ -28,7 +28,6 @@ import { buildInsightReport, InsightKind, InsightReport } from '@/components/das
 import { InsightsSheet } from '@/components/dashboard/insights-sheet';
 import { KpiGrid } from '@/components/dashboard/kpi-grid';
 import {
-  chartTokens,
   formatCompact,
   PLATFORM_CHART_COLOR,
   PLATFORM_LABEL,
@@ -45,9 +44,12 @@ import {
   MentionsFiltersSheet,
 } from '@/components/mentions-filters-sheet';
 import { PageHeading } from '@/components/page-heading';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useAuth } from '@/contexts/auth-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
+import { isArticleView } from '@/data/article-workspace';
 import { buildDashboard, KpiCard, mentionWeekStart, storyValue, totalEngagement } from '@/data/dashboard-metrics';
 import { socialMentions } from '@/data/sample-data';
 import { SocialMention, SocialPlatform } from '@/data/types';
@@ -59,15 +61,18 @@ const TL_RANGES = [
   { label: '1M', value: 30 },
 ];
 
-// Route dispatcher: MediaWatch shows the news-article analytics dashboard;
-// every other view keeps the SharedView social dashboard below, unchanged.
+// Route dispatcher: the article workspaces (MediaWatch news, AdWatch ads) show
+// the shared article analytics dashboard; every other view (SharedView) keeps
+// the social dashboard below, unchanged.
 export default function DashboardRoute() {
   const { activeView } = useAuth();
-  return activeView === 'MediaWatch' ? <MediaWatchDashboard /> : <SharedViewDashboard />;
+  return isArticleView(activeView) ? <MediaWatchDashboard /> : <SharedViewDashboard />;
 }
 
 function SharedViewDashboard() {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
   const [filters, setFilters] = useState<MentionsFilters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [range, setRange] = useState(7);
@@ -190,7 +195,7 @@ function SharedViewDashboard() {
                 accessibilityLabel={hasActiveFilters ? 'Filters. Filters active' : 'Open filters'}
                 hitSlop={8}
                 style={({ pressed }) => [styles.filterBtn, pressed && styles.pressed]}>
-                <Ionicons name="options-outline" size={18} color={chartTokens.text} />
+                <Ionicons name="options-outline" size={18} color={theme.text} />
                 {hasActiveFilters && (
                   <View style={[styles.filterDot, { backgroundColor: accentColor }]} />
                 )}
@@ -201,7 +206,7 @@ function SharedViewDashboard() {
                 accessibilityLabel="Compare topics"
                 hitSlop={8}
                 style={({ pressed }) => [styles.compareBtn, pressed && styles.pressed]}>
-                <Ionicons name="git-compare-outline" size={16} color={chartTokens.text} />
+                <Ionicons name="git-compare-outline" size={16} color={theme.text} />
                 <Text style={styles.compareBtnText}>Compare</Text>
               </Pressable>
               <Pressable
@@ -281,8 +286,8 @@ function SharedViewDashboard() {
             </ChartArea>
             <Legend
               items={[
-                { label: 'Total Results', color: chartTokens.totalResults },
-                { label: 'Total Story Value', color: chartTokens.storyValue },
+                { label: 'Total Results', color: theme.positive },
+                { label: 'Total Story Value', color: '#B9A4F7' },
                 { label: 'Projected Average', color: '#9ca3af' },
               ]}
             />
@@ -617,6 +622,7 @@ function FilterChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -629,10 +635,10 @@ function FilterChip({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F4F0',
+    backgroundColor: t.background,
     alignItems: 'center',
   },
   safeArea: {
@@ -657,7 +663,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
     gap: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: chartTokens.border,
+    borderBottomColor: t.borderCool,
   },
   headerRow: {
     flexDirection: 'row',
@@ -672,11 +678,11 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 13,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   headerActions: {
     flexDirection: 'row',
@@ -688,9 +694,9 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     borderRadius: 999,
   },
   filterDot: {
@@ -701,15 +707,15 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: t.card,
   },
   compareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 6,
@@ -717,13 +723,13 @@ const styles = StyleSheet.create({
   compareBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   exportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.inverse,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 7,
@@ -743,15 +749,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderColor: chartTokens.border,
-    backgroundColor: '#FFFFFF',
+    borderColor: t.borderCool,
+    backgroundColor: t.card,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 6,
   },
   chipOn: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
+    backgroundColor: t.inverse,
+    borderColor: t.inverse,
   },
   chipIcon: {
     width: 14,
@@ -761,7 +767,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   chipTextOn: {
     color: '#FFFFFF',
@@ -778,9 +784,9 @@ const styles = StyleSheet.create({
   channelCard: {
     width: '48.5%',
     flexGrow: 1,
-    backgroundColor: chartTokens.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 12,
     padding: Spacing.two + 2,
     gap: 5,
@@ -806,7 +812,7 @@ const styles = StyleSheet.create({
   channelLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   channelStat: {
     flexDirection: 'row',
@@ -817,15 +823,15 @@ const styles = StyleSheet.create({
   channelStatLabel: {
     flexShrink: 1,
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   channelStatVal: {
     fontSize: 12,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   channelStatZero: {
-    color: chartTokens.axisText,
+    color: t.textTertiary,
     fontWeight: '400',
   },
   tabRow: {
@@ -837,23 +843,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#F2F1ED',
+    backgroundColor: t.topicBg,
   },
   tabOn: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.inverse,
   },
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   tabTextOn: {
     color: '#FFFFFF',
   },
   sectionCard: {
-    backgroundColor: chartTokens.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -861,7 +867,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
     marginBottom: Spacing.one,
   },
   infRow: {
@@ -877,11 +883,11 @@ const styles = StyleSheet.create({
   infName: {
     fontSize: 14,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   infMeta: {
     fontSize: 12,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   infPostsPill: {
     borderRadius: 999,

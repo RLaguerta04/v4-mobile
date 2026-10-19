@@ -6,8 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ReactNode, useCallback, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
-import { chartTokens } from '@/components/dashboard/palette';
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 // Measure a container's width via onLayout. Charts render at a sensible
 // fallback on first paint, then snap to the real width once measured.
@@ -43,6 +44,8 @@ export function DbCard({
   children: ReactNode;
   style?: object;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <View style={[styles.card, style]}>
       <View style={styles.header}>
@@ -50,7 +53,7 @@ export function DbCard({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
-          <Ionicons name="information-circle-outline" size={14} color={chartTokens.textSecondary} />
+          <Ionicons name="information-circle-outline" size={14} color={theme.textSecondary} />
         </View>
         {(onInsights || onExplore) && (
           <View style={styles.actions}>
@@ -61,7 +64,7 @@ export function DbCard({
                 accessibilityLabel={`${title} insights`}
                 hitSlop={6}
                 style={({ pressed }) => [styles.insightsBtn, pressed && styles.pressed]}>
-                <Ionicons name="sparkles" size={12} color={chartTokens.text} />
+                <Ionicons name="sparkles" size={12} color={theme.text} />
                 <Text style={styles.insightsText}>Insights</Text>
               </Pressable>
             )}
@@ -86,6 +89,7 @@ export function DbCard({
 export type LegendItem = { label: string; color: string; note?: string };
 
 export function Legend({ items, style }: { items: LegendItem[]; style?: object }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.legend, style]}>
       {items.map((it, i) => (
@@ -111,6 +115,7 @@ export function RangeToggle<T extends string | number>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.rangeRow}>
       {options.map((o) => {
@@ -130,11 +135,11 @@ export function RangeToggle<T extends string | number>({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: chartTokens.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 14,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
     letterSpacing: -0.2,
   },
   actions: {
@@ -169,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     borderRadius: 8,
     paddingHorizontal: Spacing.two,
     paddingVertical: 5,
@@ -177,11 +182,11 @@ const styles = StyleSheet.create({
   insightsText: {
     fontSize: 11,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   exploreBtn: {
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     borderRadius: 8,
     paddingHorizontal: Spacing.two,
     paddingVertical: 5,
@@ -189,7 +194,7 @@ const styles = StyleSheet.create({
   exploreText: {
     fontSize: 11,
     fontWeight: '600',
-    color: chartTokens.text,
+    color: t.text,
   },
   pressed: {
     opacity: 0.6,
@@ -213,12 +218,12 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     flexShrink: 1,
   },
   legendNote: {
     fontSize: 11,
-    color: chartTokens.axisText,
+    color: t.textTertiary,
   },
   rangeRow: {
     flexDirection: 'row',
@@ -228,17 +233,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#F2F1ED',
+    backgroundColor: t.topicBg,
   },
+  // Selected pill inverts against the canvas: ink fill + card-colored text.
+  // In light that's #1A1A1A on #FFFFFF; in dark it flips to a light pill with
+  // dark text, so the "on" state still reads as the high-contrast one.
   rangeBtnOn: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.text,
   },
   rangeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   rangeTextOn: {
-    color: '#FFFFFF',
+    color: t.card,
   },
 });

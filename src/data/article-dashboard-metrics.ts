@@ -39,36 +39,86 @@ function countBy<T extends string>(articles: NewsArticle[], key: (a: NewsArticle
 }
 
 // ── KPI cards ── (reuses KpiCard; `explore` is unused here — the screen reads `key`)
-export function buildArticleKpis(articles: NewsArticle[]): KpiCard[] {
+// Each KPI has a stable `kind`; a workspace can request a subset (AdWatch shows
+// the web-landing four: total / channel / pub / section) and override the brand
+// accent, media-channel breakdown and item noun.
+export type ArticleKpiKind = 'total' | 'ave' | 'pub' | 'author' | 'day' | 'channel' | 'section' | 'sent' | 'entity';
+
+export interface ArticleKpiOptions {
+  /** Brand accent for avatar KPIs (defaults to MediaWatch coral). */
+  accent?: string;
+  /** Media channels for the Total-Results breakdown + Top-Exposure KPI. */
+  channels?: { label: string; types: MediaType[] }[];
+  /** Item noun for KPI detail/value text (defaults to "article"). */
+  noun?: string;
+  /** When set, only these KPI kinds are emitted, in this order of appearance. */
+  include?: ArticleKpiKind[];
+}
+
+export function buildArticleKpis(articles: NewsArticle[], opts: ArticleKpiOptions = {}): KpiCard[] {
   const cards: KpiCard[] = [];
-  const AC = '#E94F37';
+  const AC = opts.accent ?? '#E94F37';
+  const noun = opts.noun ?? 'article';
+  const nouns = `${noun}s`;
+  const want = (k: ArticleKpiKind) => !opts.include || opts.include.includes(k);
   const push = (c: Omit<KpiCard, 'deltaPct' | 'explore'> & { deltaKey?: string }) =>
     cards.push({ ...c, deltaPct: stableDelta(c.deltaKey ?? c.key), explore: 'total' });
 
-  // Total Results — big count + the web's channel breakdown sub-line
-  // (Broadcast = TV + Radio, mirroring "Online: 168 · Print: 52 · Broadcast: 28").
-  const chCount = (ch: MediaChannel) => articles.filter((a) => mediaChannel(a.mediaType) === ch).length;
-  const broadcast = chCount('TV') + chCount('Radio');
-  push({
-    key: 'total',
-    label: 'Total Results',
-    value: String(articles.length),
-    isNumber: true,
-    detail: `Online: ${chCount('Online')} · Print: ${chCount('Print')} · Broadcast: ${broadcast}`,
-  });
+  // Channel counts — from the workspace's channels when provided (AdWatch:
+  // Video/Print/Radio), else the MediaWatch default (Broadcast = TV + Radio).
+  const channelBreakdown = opts.channels
+    ? opts.channels.map((c) => ({ label: c.label, count: articles.filter((a) => c.types.includes(a.mediaType)).length }))
+    : (() => {
+        const chCount = (ch: MediaChannel) => articles.filter((a) => mediaChannel(a.mediaType) === ch).length;
+        return [
+          { label: 'Online', count: chCount('Online') },
+          { label: 'Print', count: chCount('Print') },
+          { label: 'Broadcast', count: chCount('TV') + chCount('Radio') },
+        ];
+      })();
 
-  const totalAve = articles.reduce((s, a) => s + a.ave, 0);
-  push({ key: 'ave', label: 'Total AVE', value: formatAve(totalAve), isNumber: true });
+  // Total Results — big count + channel breakdown sub-line.
+  if (want('total')) {
+    push({
+      key: 'total',
+      label: 'Total Results',
+      value: String(articles.length),
+      isNumber: true,
+      detail: channelBreakdown.map((c) => `${c.label}: ${c.count}`).join(' · '),
+    });
+  }
+
+  if (want('ave')) {
+    const totalAve = articles.reduce((s, a) => s + a.ave, 0);
+    push({ key: 'ave', label: 'Total AVE', value: formatAve(totalAve), isNumber: true });
+  }
+
+  if (want('channel')) {
+    // Top Exposure by Medium — prefer the workspace channels so AdWatch surfaces
+    // Video/Print/Radio (not the raw TV/Radio media channels).
+    const top = [...channelBreakdown].sort((a, b) => b.count - a.count)[0];
+    if (top && top.count > 0) {
+      push({
+        key: `channel:${top.label}`,
+        label: 'Top Exposure by Medium',
+        value: top.label,
+        isNumber: false,
+        detail: `${top.count} ${top.count === 1 ? noun : nouns}`,
+        avatarLetter: top.label.charAt(0),
+        avatarColor: (CHANNEL_COLOR as Record<string, string>)[top.label] ?? AC,
+      });
+    }
+  }
 
   const pubs = buildPublishers(articles);
   const topPub = [...pubs].sort((a, b) => b.count - a.count)[0];
-  if (topPub) {
+  if (want('pub') && topPub) {
     push({
       key: `pub:${topPub.name}`,
-      label: 'Top Publisher',
+      label: opts.include ? 'Top Exposure by Publisher' : 'Top Publisher',
       value: topPub.name,
       isNumber: false,
-      detail: `${topPub.count} ${topPub.count === 1 ? 'article' : 'articles'}`,
+      detail: `${topPub.count} ${topPub.count === 1 ? noun : nouns}`,
       avatarLetter: avatarInitial(topPub.name),
       avatarColor: AC,
     });
@@ -76,53 +126,39 @@ export function buildArticleKpis(articles: NewsArticle[]): KpiCard[] {
 
   const authors = buildAuthors(articles);
   const topAuthor = [...authors].sort((a, b) => b.count - a.count)[0];
-  if (topAuthor) {
+  if (want('author') && topAuthor) {
     push({
       key: `author:${topAuthor.name}`,
       label: 'Top Author',
       value: topAuthor.name,
       isNumber: false,
-      detail: `${topAuthor.count} ${topAuthor.count === 1 ? 'article' : 'articles'}`,
+      detail: `${topAuthor.count} ${topAuthor.count === 1 ? noun : nouns}`,
       avatarLetter: avatarInitial(topAuthor.name),
       avatarColor: '#2563EB',
     });
   }
 
-  // Most Articles in a Day — the busiest publish date (web parity: value
-  // "N Article/s", sub = that date).
+  // Most in a Day — the busiest publish date.
   const byDay = countBy(articles, (a) => a.date);
   const topDay = byDay[0];
-  if (topDay) {
+  if (want('day') && topDay) {
     push({
       key: `day:${topDay[0]}`,
-      label: 'Most Articles in a Day',
-      value: `${topDay[1]} Article/s`,
+      label: `Most ${nouns.charAt(0).toUpperCase() + nouns.slice(1)} in a Day`,
+      value: `${topDay[1]} ${topDay[1] === 1 ? noun : nouns}`,
       isNumber: true,
       detail: topDay[0],
     });
   }
 
-  const [topChannel] = countBy(articles, (a) => mediaChannel(a.mediaType));
-  if (topChannel) {
-    push({
-      key: `channel:${topChannel[0]}`,
-      label: 'Top Exposure by Medium',
-      value: topChannel[0],
-      isNumber: false,
-      detail: `${topChannel[1]} articles`,
-      avatarLetter: topChannel[0].charAt(0),
-      avatarColor: CHANNEL_COLOR[topChannel[0]],
-    });
-  }
-
   const [topSection] = countBy(articles, (a) => a.section);
-  if (topSection) {
+  if (want('section') && topSection) {
     push({
       key: `section:${topSection[0]}`,
       label: 'Most Dominant Section',
       value: topSection[0],
       isNumber: false,
-      detail: `${topSection[1]} articles`,
+      detail: `${topSection[1]} ${topSection[1] === 1 ? noun : nouns}`,
       avatarLetter: avatarInitial(topSection[0]),
       avatarColor: '#0D9488',
     });
@@ -130,13 +166,13 @@ export function buildArticleKpis(articles: NewsArticle[]): KpiCard[] {
 
   const sentCounts = countBy(articles, (a) => a.sentiment);
   const topSent = sentCounts[0];
-  if (topSent) {
+  if (want('sent') && topSent) {
     push({
       key: `sent:${topSent[0]}`,
       label: 'Top Tonality',
       value: SENTIMENT_LABEL[topSent[0] as Sentiment],
       isNumber: false,
-      detail: `${topSent[1]} articles`,
+      detail: `${topSent[1]} ${topSent[1] === 1 ? noun : nouns}`,
       avatarLetter: SENTIMENT_LABEL[topSent[0] as Sentiment].charAt(0),
       avatarColor: SENTIMENT_COLOR[topSent[0] as Sentiment],
     });
@@ -145,13 +181,13 @@ export function buildArticleKpis(articles: NewsArticle[]): KpiCard[] {
   const entCounts = new Map<string, number>();
   articles.forEach((a) => a.entities.forEach((e) => entCounts.set(e, (entCounts.get(e) ?? 0) + 1)));
   const topEnt = [...entCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topEnt) {
+  if (want('entity') && topEnt) {
     push({
       key: `entity:${topEnt[0]}`,
       label: 'Top Entities',
       value: topEnt[0],
       isNumber: false,
-      detail: `${topEnt[1]} articles`,
+      detail: `${topEnt[1]} ${topEnt[1] === 1 ? noun : nouns}`,
       avatarLetter: avatarInitial(topEnt[0]),
       avatarColor: '#7C3AED',
     });

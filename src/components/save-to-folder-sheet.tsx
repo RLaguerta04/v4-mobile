@@ -26,18 +26,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
 import { FOLDER_COLORS, useSavedArticles } from '@/contexts/saved-articles-context';
-
-const palette = {
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-  faint: '#9CA3AF',
-  danger: '#DC2626',
-};
+import { useAccentColor, useTheme, useThemeMode } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 // Start/rest offset for the slide animation — past the sheet's own height.
 const SHEET_OFFSCREEN_Y = 500;
@@ -53,8 +45,14 @@ export function SaveToFolderSheet({
   onClose: () => void;
   host?: 'modal' | 'inline';
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  // Destructive red kept as the literal red-600 in light; lightened on dark so
+  // it clears AA on the charcoal sheet (the brand coral is a different hue).
+  const dangerColor = isDark ? '#F87171' : '#DC2626';
+  const accentColor = useAccentColor();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
   const { folders, folderOfUrl, moveToFolder, createFolder, toggleSaveArticle } = useSavedArticles();
 
   const saved = url in folderOfUrl;
@@ -217,7 +215,7 @@ export function SaveToFolderSheet({
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="Folder name"
-                placeholderTextColor={palette.faint}
+                placeholderTextColor={theme.textTertiary}
                 style={styles.createInput}
                 autoFocus
                 onSubmitEditing={submitNew}
@@ -228,7 +226,7 @@ export function SaveToFolderSheet({
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Create folder and save">
-                <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
+                <Ionicons name="checkmark-circle" size={28} color={theme.positive} />
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -238,7 +236,7 @@ export function SaveToFolderSheet({
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel new folder">
-                <Ionicons name="close-circle" size={28} color={palette.faint} />
+                <Ionicons name="close-circle" size={28} color={theme.textTertiary} />
               </Pressable>
             </View>
           ) : (
@@ -253,7 +251,7 @@ export function SaveToFolderSheet({
               accessibilityLabel="New folder"
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
               <View style={[styles.folderIcon, styles.newIcon]}>
-                <Ionicons name="add" size={20} color={palette.textSecondary} />
+                <Ionicons name="add" size={20} color={theme.textSecondary} />
               </View>
               <Text style={styles.rowLabel}>New folder</Text>
             </Pressable>
@@ -266,8 +264,8 @@ export function SaveToFolderSheet({
             accessibilityRole="button"
             accessibilityLabel="Remove from Saved Articles"
             style={({ pressed }) => [styles.removeRow, pressed && styles.pressed]}>
-            <Ionicons name="trash-outline" size={20} color={palette.danger} />
-            <Text style={styles.removeText}>Remove from Saved Articles</Text>
+            <Ionicons name="trash-outline" size={20} color={dangerColor} />
+            <Text style={[styles.removeText, { color: dangerColor }]}>Remove from Saved Articles</Text>
           </Pressable>
         ) : null}
       </Animated.View>
@@ -299,6 +297,8 @@ function OptionRow({
   accentColor: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -309,12 +309,12 @@ function OptionRow({
       <View
         style={[
           styles.folderIcon,
-          { backgroundColor: folderColor ? `${folderColor}1A` : '#F0EEE8' },
+          { backgroundColor: folderColor ? `${folderColor}1A` : theme.topicBg },
         ]}>
         <Ionicons
           name={folderColor ? 'folder' : iconName ?? 'file-tray-full-outline'}
           size={18}
-          color={folderColor ?? palette.textSecondary}
+          color={folderColor ?? theme.textSecondary}
         />
       </View>
       <View style={styles.rowText}>
@@ -328,7 +328,7 @@ function OptionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -343,10 +343,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   sheet: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderTopLeftRadius: Spacing.three,
     borderTopRightRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
@@ -357,13 +357,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: t.border,
     marginBottom: Spacing.two,
   },
   title: {
     fontSize: 17,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     marginBottom: Spacing.one,
   },
   list: {
@@ -382,11 +382,11 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   rowSub: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   folderIcon: {
     width: 36,
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: palette.faint,
+    borderColor: t.textTertiary,
   },
   createRow: {
     flexDirection: 'row',
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
     paddingVertical: Spacing.two,
   },
   removeRow: {
@@ -421,12 +421,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     marginTop: Spacing.one,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.border,
+    borderTopColor: t.border,
   },
   removeText: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.danger,
+    // color applied inline (scheme-aware destructive red).
   },
   pressed: {
     opacity: 0.6,

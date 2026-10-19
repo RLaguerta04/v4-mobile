@@ -6,14 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
-import { SENTIMENT_DOT, cardPalette } from '@/components/detail-primitives';
+import { SENTIMENT_DOT } from '@/components/detail-primitives';
 import { ArticleDetailModal } from '@/components/mediawatch/article-detail';
-import { AudioAttachment, DocumentAttachment, MEDIA_TYPE_META, MediaTypeIcon } from '@/components/mediawatch/article-ui';
+import { DocumentAttachment, mediaMeta, MediaTypeIcon } from '@/components/mediawatch/article-ui';
+import { AudioHeroPlayer } from '@/components/mediawatch/audio-hero-player';
 import { SaveToFolderSheet } from '@/components/save-to-folder-sheet';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useSavedArticles } from '@/contexts/saved-articles-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace } from '@/data/article-workspace';
 import { formatAve } from '@/data/mediawatch-metrics';
 import type { NewsArticle } from '@/data/mediawatch-types';
 
@@ -25,6 +28,7 @@ const PRINT_TYPES = new Set(['broadsheet', 'provincial', 'tabloid', 'magazine'])
 // poster, waveform, scanned page). Online/tv only show one when a thumbnail
 // was actually captured; radio/print always carry their attachment.
 function ArticleMedia({ article }: { article: NewsArticle }) {
+  const styles = useThemedStyles(makeStyles);
   if ((article.mediaType === 'online' || article.mediaType === 'blog' || article.mediaType === 'tv') && article.thumbnail) {
     return (
       <View style={styles.thumb}>
@@ -39,13 +43,16 @@ function ArticleMedia({ article }: { article: NewsArticle }) {
       </View>
     );
   }
-  if (article.mediaType === 'radio') return <AudioAttachment article={article} />;
+  if (article.mediaType === 'radio') return <AudioHeroPlayer article={article} compact />;
   if (PRINT_TYPES.has(article.mediaType)) return <DocumentAttachment article={article} />;
   return null;
 }
 
 export function ArticleCard({ article, matchScore }: { article: NewsArticle; matchScore?: number }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
+  const { adMode } = useArticleWorkspace();
   const { isSaved, toggleSave } = useBookmarks();
   const { isArticleSaved } = useSavedArticles();
   const saved = isSaved(article.url);
@@ -92,7 +99,7 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
         accessibilityRole="button"
         accessibilityLabel={`Open article: ${article.title}`}>
         <View style={[styles.sourceRow, styles.cardSourceRow]}>
-          <MediaTypeIcon type={article.mediaType} size={36} />
+          <MediaTypeIcon type={article.mediaType} size={36} adMode={adMode} />
           <View style={styles.identity}>
             <View style={styles.nameLine}>
               <Text style={styles.outlet} numberOfLines={1}>
@@ -101,7 +108,7 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
               <View style={[styles.sentimentDot, { backgroundColor: SENTIMENT_DOT[article.sentiment] }]} />
             </View>
             <Text style={styles.subMeta} numberOfLines={1}>
-              {MEDIA_TYPE_META[article.mediaType].label} · {article.author} · {article.ago}
+              {mediaMeta(article.mediaType, adMode).label} · {article.author} · {article.ago}
             </Text>
           </View>
         </View>
@@ -115,11 +122,11 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
         <View style={styles.metaRow}>
           <View style={styles.metrics}>
             <View style={styles.metric}>
-              <Ionicons name="star-outline" size={13} color={cardPalette.textSecondary} />
+              <Ionicons name="star-outline" size={13} color={theme.textSecondary} />
               <Text style={styles.metricValue}>{article.storyValue.toFixed(2)}</Text>
             </View>
             <View style={styles.metric}>
-              <Ionicons name="cash-outline" size={13} color={cardPalette.textSecondary} />
+              <Ionicons name="cash-outline" size={13} color={theme.textSecondary} />
               <Text style={styles.metricValue}>{formatAve(article.ave)}</Text>
             </View>
           </View>
@@ -140,7 +147,7 @@ export function ArticleCard({ article, matchScore }: { article: NewsArticle; mat
         accessibilityRole="button"
         accessibilityLabel="More options"
         style={({ pressed }) => [styles.cardMenuButton, pressed && styles.pressed]}>
-        <Ionicons name="ellipsis-horizontal" size={18} color={cardPalette.textSecondary} />
+        <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
       </Pressable>
 
       <Modal visible={menuOpen} transparent animationType="none" statusBarTranslucent onRequestClose={closeMenu}>
@@ -198,19 +205,21 @@ function SheetRow({
   color?: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <Pressable
       style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}>
-      <Ionicons name={icon} size={20} color={color ?? cardPalette.text} />
+      <Ionicons name={icon} size={20} color={color ?? theme.text} />
       <Text style={[styles.sheetRowText, color && { color }]}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   cardContainer: { position: 'relative' },
   card: { gap: Spacing.two },
   cardPressed: { opacity: 0.7 },
@@ -228,7 +237,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     borderRadius: Spacing.three,
-    backgroundColor: cardPalette.track,
+    backgroundColor: theme.track,
     overflow: 'hidden',
   },
   thumbImage: { width: '100%', height: '100%' },
@@ -253,25 +262,25 @@ const styles = StyleSheet.create({
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   identity: { flex: 1, gap: 2 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  outlet: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: cardPalette.text },
+  outlet: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: theme.text },
   sentimentDot: { width: 6, height: 6, borderRadius: 3 },
-  subMeta: { fontSize: 11, color: cardPalette.textSecondary },
-  headline: { fontSize: 16, fontWeight: '600', lineHeight: 22, color: cardPalette.text },
+  subMeta: { fontSize: 11, color: theme.textSecondary },
+  headline: { fontSize: 16, fontWeight: '600', lineHeight: 22, color: theme.text },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.one },
   metrics: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   metric: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metricValue: { fontSize: 12, fontWeight: '600', color: cardPalette.textSecondary },
+  metricValue: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
   matchBlock: { alignItems: 'flex-end', gap: 3 },
-  matchText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
-  matchTextMid: { color: '#D97706' },
-  matchTrack: { width: 64, height: 3, borderRadius: 2, backgroundColor: cardPalette.track },
-  matchFill: { height: 3, borderRadius: 2, backgroundColor: '#16A34A' },
-  matchFillMid: { backgroundColor: '#D97706' },
+  matchText: { fontSize: 12, fontWeight: '700', color: theme.positive },
+  matchTextMid: { color: theme.warning },
+  matchTrack: { width: 64, height: 3, borderRadius: 2, backgroundColor: theme.track },
+  matchFill: { height: 3, borderRadius: 2, backgroundColor: theme.positive },
+  matchFillMid: { backgroundColor: theme.warning },
   pressed: { opacity: 0.5 },
   sheetContainer: { flex: 1, justifyContent: 'flex-end' },
-  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(26, 26, 26, 0.4)' },
+  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.scrim },
   sheet: {
-    backgroundColor: cardPalette.card,
+    backgroundColor: theme.card,
     borderTopLeftRadius: Spacing.three,
     borderTopRightRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
@@ -283,9 +292,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: cardPalette.border,
+    backgroundColor: theme.border,
     marginBottom: Spacing.two,
   },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
-  sheetRowText: { fontSize: 15, fontWeight: '600', color: cardPalette.text },
+  sheetRowText: { fontSize: 15, fontWeight: '600', color: theme.text },
 });

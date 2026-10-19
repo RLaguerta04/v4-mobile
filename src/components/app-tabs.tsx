@@ -5,8 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -24,7 +27,7 @@ type TabDef = {
 // routes (profile, brief, and the view-specific More destinations) are
 // registered further down.
 const SHARED_TABS: TabDef[] = [
-  { name: 'index', href: '/', icon: 'home-outline', iconActive: 'home', label: 'Home' },
+  { name: 'index', href: '/', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Mentions' },
   { name: 'bookmark', href: '/bookmark', icon: 'megaphone-outline', iconActive: 'megaphone', label: 'Activity' },
   { name: 'authors', href: '/authors', icon: 'grid-outline', iconActive: 'grid', label: 'Dashboard' },
   { name: 'search', href: '/search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
@@ -37,13 +40,21 @@ const MEDIAWATCH_TABS: TabDef[] = [
   { name: 'search', href: '/search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
 ];
 
+const ADWATCH_TABS: TabDef[] = [
+  { name: 'index', href: '/', icon: 'easel-outline', iconActive: 'easel', label: 'Mentions' },
+  { name: 'bookmark', href: '/bookmark', icon: 'megaphone-outline', iconActive: 'megaphone', label: 'Tracker' },
+  { name: 'authors', href: '/authors', icon: 'grid-outline', iconActive: 'grid', label: 'Dashboard' },
+  { name: 'search', href: '/search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
+];
+
 type MoreItem = { href: string; label: string; icon: IoniconName; iconActive: IoniconName };
 
-// SharedView / AdWatch keep the original More sheet; MediaWatch exposes its own
-// workspace pages (Publishers, Authors, Reports, AI News Writer) alongside the
-// shared Categories / Bookmarks / Saved Articles.
+// All three views expose Reports (the workspace-driven /mw-reports screen);
+// MediaWatch adds its own Publishers / Authors / AI News Writer. Categories /
+// Bookmarks / Saved are shared across views.
 const SHARED_MORE: MoreItem[] = [
   { href: '/influencers', label: 'Influencers', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
+  { href: '/mw-reports', label: 'Reports', icon: 'document-text-outline', iconActive: 'document-text' },
   { href: '/bookmarks', label: 'Bookmarks', icon: 'bookmark-outline', iconActive: 'bookmark' },
   { href: '/saved', label: 'Saved Articles', icon: 'file-tray-full-outline', iconActive: 'file-tray-full' },
   { href: '/categories', label: 'Categories', icon: 'apps-outline', iconActive: 'apps' },
@@ -59,12 +70,23 @@ const MEDIAWATCH_MORE: MoreItem[] = [
   { href: '/saved', label: 'Saved Articles', icon: 'file-tray-full-outline', iconActive: 'file-tray-full' },
 ];
 
+// AdWatch mirrors the web reference's lean nav — Mentions/Tracker/Dashboard/
+// Reports — with no Publishers/Authors/AI-Writer. Reports reuses the shared
+// (workspace-driven) /mw-reports screen; Categories/Bookmarks/Saved are shared.
+const ADWATCH_MORE: MoreItem[] = [
+  { href: '/mw-reports', label: 'Reports', icon: 'document-text-outline', iconActive: 'document-text' },
+  { href: '/categories', label: 'Categories', icon: 'apps-outline', iconActive: 'apps' },
+  { href: '/bookmarks', label: 'Bookmarks', icon: 'bookmark-outline', iconActive: 'bookmark' },
+  { href: '/saved', label: 'Saved Ads', icon: 'file-tray-full-outline', iconActive: 'file-tray-full' },
+];
+
 export default function AppTabs() {
   const [moreOpen, setMoreOpen] = useState(false);
+  const styles = useThemedStyles(makeStyles);
   const { activeView } = useAuth();
-  const isMediaWatch = activeView === 'MediaWatch';
-  const tabs = isMediaWatch ? MEDIAWATCH_TABS : SHARED_TABS;
-  const moreItems = isMediaWatch ? MEDIAWATCH_MORE : SHARED_MORE;
+  const tabs = activeView === 'MediaWatch' ? MEDIAWATCH_TABS : activeView === 'AdWatch' ? ADWATCH_TABS : SHARED_TABS;
+  const moreItems =
+    activeView === 'MediaWatch' ? MEDIAWATCH_MORE : activeView === 'AdWatch' ? ADWATCH_MORE : SHARED_MORE;
 
   return (
     <Tabs>
@@ -110,8 +132,10 @@ function TabButton({
   style,
   ...props
 }: TabTriggerSlotProps & { icon: IoniconName; iconActive: IoniconName; label: string }) {
-  const { accentColor } = useAuth();
-  const activeColor = isFocused ? accentColor : Colors.inactive;
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
+  const activeColor = isFocused ? accentColor : theme.tabInactive;
 
   return (
     <Pressable
@@ -131,19 +155,22 @@ function TabButton({
 // on canceling a TabTrigger's navigation isn't a reliably supported native
 // behavior, only a documented web-link convenience.
 function MoreButton({ onPress }: { onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
       style={styles.tabButton}
       accessibilityRole="tab"
       accessibilityLabel="More">
-      <Ionicons name="ellipsis-horizontal" size={23} color={Colors.inactive} />
-      <Text style={[styles.tabLabel, { color: Colors.inactive }]}>More</Text>
+      <Ionicons name="ellipsis-horizontal" size={23} color={theme.tabInactive} />
+      <Text style={[styles.tabLabel, { color: theme.tabInactive }]}>More</Text>
     </Pressable>
   );
 }
 
 function BarContainer(props: TabListProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { hideProgress } = useTabBarVisibility();
   const barHeight = 54 + Math.max(insets.bottom, 10);
@@ -181,7 +208,9 @@ function MoreSheet({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const accentColor = useAccentColor();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN_Y)).current;
   const [rendered, setRendered] = useState(visible);
@@ -251,7 +280,7 @@ function MoreSheet({
                 <Ionicons
                   name={active ? item.iconActive : item.icon}
                   size={20}
-                  color={active ? accentColor : Colors.text}
+                  color={active ? accentColor : theme.text}
                 />
                 <Text style={[styles.sheetRowText, active && { color: accentColor, fontWeight: '700' }]}>
                   {item.label}
@@ -265,24 +294,17 @@ function MoreSheet({
   );
 }
 
-const Colors = {
-  bar: '#FFFFFF',
-  inactive: '#8A8A8E',
-  border: '#E7DDCC',
-  text: '#1A1A1A',
-};
-
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   bar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     flexDirection: 'row',
-    backgroundColor: Colors.bar,
+    backgroundColor: t.tabBar,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
+    borderTopColor: t.border,
   },
   tabButton: {
     flex: 1,
@@ -315,10 +337,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   sheet: {
-    backgroundColor: Colors.bar,
+    backgroundColor: t.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 24,
@@ -330,7 +352,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: t.border,
     marginBottom: 8,
   },
   sheetRow: {
@@ -348,6 +370,6 @@ const styles = StyleSheet.create({
   sheetRowText: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text,
+    color: t.text,
   },
 });

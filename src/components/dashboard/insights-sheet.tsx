@@ -9,21 +9,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { Animated, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { chartTokens } from '@/components/dashboard/palette';
 import { InsightDrill, InsightIcon, InsightReport, InsightSection } from '@/components/dashboard/insights';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useSemanticColors, useTheme, useThemeMode } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-const TONE_COLOR = { up: '#16A34A', down: '#E94F37', neutral: chartTokens.textSecondary };
 const DEFAULT_BAR = '#7c3aed';
 
+// Tone → color, resolved from the active scheme's semantic accents (so up/down
+// lighten on dark) with the neutral tone falling back to secondary text.
+function useToneColor() {
+  const sem = useSemanticColors();
+  const theme = useTheme();
+  return { up: sem.positive, down: sem.negative, neutral: theme.textSecondary } as const;
+}
+
 // Web parity (app.css .ti-sec-title): the section icon is tinted by type.
-function sectionIconColor(icon: InsightIcon): string {
-  if (icon === 'trending-up') return '#16a34a';
-  if (icon === 'trending-down') return '#e94f37';
+// Greens/coral come from the scheme's semantic accents (brighter on dark); the
+// amber reads on both canvases; the brand purple is lightened on dark.
+function sectionIconColor(
+  icon: InsightIcon,
+  sem: { positive: string; negative: string },
+  isDark: boolean,
+): string {
+  if (icon === 'trending-up') return sem.positive;
+  if (icon === 'trending-down') return sem.negative;
   if (icon === 'flash' || icon === 'bulb') return '#f59e0b';
-  return '#7c3aed';
+  return isDark ? '#A78BFA' : '#7c3aed';
 }
 
 export function InsightsSheet({
@@ -35,6 +49,10 @@ export function InsightsSheet({
   onClose: () => void;
   onDrill: (drill: InsightDrill) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  const toneColor = useToneColor();
   const dismiss = useDismissGesture(onClose);
 
   function exportReport() {
@@ -56,13 +74,13 @@ export function InsightsSheet({
                     accessibilityLabel="Export insights"
                     hitSlop={8}
                     style={({ pressed }) => [styles.exportPill, pressed && styles.pressed]}>
-                    <Ionicons name="share-outline" size={14} color="#FFFFFF" />
+                    <Ionicons name="share-outline" size={14} color={theme.card} />
                     <Text style={styles.exportPillText}>Export</Text>
                   </Pressable>
                 }>
                 <View style={styles.headRow}>
                   <View style={styles.headBadge}>
-                    <Ionicons name="sparkles" size={15} color="#7c3aed" />
+                    <Ionicons name="sparkles" size={15} color={isDark ? '#A78BFA' : '#7c3aed'} />
                   </View>
                   <View style={styles.headTitles}>
                     <Text style={styles.headTitle}>Insights</Text>
@@ -92,7 +110,7 @@ export function InsightsSheet({
                       {s.label.toUpperCase()}
                     </Text>
                     <Text
-                      style={[styles.statValue, s.tone ? { color: TONE_COLOR[s.tone] } : null]}
+                      style={[styles.statValue, s.tone ? { color: toneColor[s.tone] } : null]}
                       numberOfLines={1}>
                       {s.value}
                     </Text>
@@ -108,7 +126,7 @@ export function InsightsSheet({
               ))}
 
               <View style={styles.footer}>
-                <Ionicons name="sparkles" size={12} color={chartTokens.axisText} />
+                <Ionicons name="sparkles" size={12} color={theme.textTertiary} />
                 <Text style={styles.footerText}>{report.footer}</Text>
               </View>
             </ScrollView>
@@ -120,10 +138,15 @@ export function InsightsSheet({
 }
 
 function Section({ section, onDrill }: { section: InsightSection; onDrill: (d: InsightDrill) => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const sem = useSemanticColors();
+  const { isDark } = useThemeMode();
+  const toneColor = useToneColor();
   return (
     <View style={styles.section}>
       <View style={styles.sectionTitleRow}>
-        <Ionicons name={section.icon} size={14} color={sectionIconColor(section.icon)} />
+        <Ionicons name={section.icon} size={14} color={sectionIconColor(section.icon, sem, isDark)} />
         <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
       </View>
 
@@ -133,7 +156,7 @@ function Section({ section, onDrill }: { section: InsightSection; onDrill: (d: I
               <Ionicons
                 name={section.icons?.[i] ?? section.icon}
                 size={14}
-                color={chartTokens.axisText}
+                color={theme.textTertiary}
                 style={styles.insightIcon}
               />
               <RichText text={item} style={styles.insightText} />
@@ -143,7 +166,7 @@ function Section({ section, onDrill }: { section: InsightSection; onDrill: (d: I
 
       {section.kind === 'callouts'
         ? section.callouts.map((c, i) => {
-            const color = TONE_COLOR[c.tone];
+            const color = toneColor[c.tone];
             const drill = c.drill;
             const body = (
               <>
@@ -214,6 +237,7 @@ function Section({ section, onDrill }: { section: InsightSection; onDrill: (d: I
 
 // Renders a string with **bold** segments.
 function RichText({ text, style }: { text: string; style?: object }) {
+  const styles = useThemedStyles(makeStyles);
   const parts = text.split('**');
   return (
     <Text style={style}>
@@ -236,10 +260,10 @@ function reportToText(r: InsightReport): string {
   return lines.join('\n');
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F5F4F0',
+    backgroundColor: t.background,
   },
   fill: {
     flex: 1,
@@ -255,7 +279,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: 'rgba(124,58,237,0.12)',
+    backgroundColor: 'rgba(124,58,237,0.12)', // faint brand-purple tint, reads on both canvases
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -266,18 +290,20 @@ const styles = StyleSheet.create({
   headTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
   headSub: {
     fontSize: 12,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     marginTop: 1,
   },
+  // Inverted primary pill: ink fill + card-colored content (flips to a light
+  // pill with dark content on the dark canvas).
   exportPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: t.text,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 6,
@@ -285,7 +311,7 @@ const styles = StyleSheet.create({
   exportPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.card,
   },
 
   body: {
@@ -296,20 +322,20 @@ const styles = StyleSheet.create({
 
   // Narrative (web .ti-narrative)
   narrative: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     borderRadius: 14,
     padding: Spacing.three,
   },
   narrativeText: {
     fontSize: 14,
     lineHeight: 21,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
   bold: {
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
 
   // Stat tiles (web .ti-stat)
@@ -321,9 +347,9 @@ const styles = StyleSheet.create({
   statTile: {
     width: '48%',
     flexGrow: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     borderRadius: 12,
     padding: Spacing.two + 2,
     gap: 3,
@@ -331,18 +357,18 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: chartTokens.axisText,
+    color: t.textTertiary,
     letterSpacing: 0.3,
   },
   statValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
     letterSpacing: -0.4,
   },
   statSub: {
     fontSize: 11,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
 
   // Section (web .ti-sec-title has a top-border divider)
@@ -350,7 +376,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingTop: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: chartTokens.border,
+    borderTopColor: t.borderCool,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -360,7 +386,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
     letterSpacing: 0.4,
   },
 
@@ -378,7 +404,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13.5,
     lineHeight: 20,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
   },
 
   // Callouts (web .ti-callout)
@@ -386,9 +412,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     borderRadius: 12,
     padding: Spacing.two + 2,
   },
@@ -405,11 +431,11 @@ const styles = StyleSheet.create({
   calloutLabel: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: chartTokens.text,
+    color: t.text,
   },
   calloutSub: {
     fontSize: 12,
-    color: chartTokens.textSecondary,
+    color: t.textSecondary,
     marginTop: 1,
   },
   calloutValue: {
@@ -428,9 +454,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     borderRadius: 6,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: chartTokens.border,
+    borderColor: t.cardBorder,
     marginBottom: 4,
   },
   rankFill: {
@@ -443,19 +469,19 @@ const styles = StyleSheet.create({
   rankNo: {
     fontSize: 11,
     fontWeight: '700',
-    color: chartTokens.axisText,
+    color: t.textTertiary,
     minWidth: 12,
   },
   rankName: {
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
-    color: chartTokens.text,
+    color: t.text,
   },
   rankValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: chartTokens.text,
+    color: t.text,
   },
 
   // Footer (web .ti-foot)
@@ -466,13 +492,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
     paddingTop: Spacing.two,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: chartTokens.border,
+    borderTopColor: t.borderCool,
   },
   footerText: {
     flex: 1,
     fontSize: 11,
     lineHeight: 16,
-    color: chartTokens.axisText,
+    color: t.textTertiary,
   },
   pressed: {
     opacity: 0.6,

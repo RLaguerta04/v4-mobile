@@ -7,17 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const palette = {
-  card: '#FFFFFF',
-  border: '#E7DDCC',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-};
 
 function fmt(d: Date, withYear: boolean): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}${withYear ? `, ${d.getFullYear()}` : ''}`;
@@ -50,7 +44,8 @@ export function FeedCoverageBar({
   noun: string;
   dateRange?: { start: Date | null; end: Date | null };
 }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const accentColor = useAccentColor();
 
   // The live current date.
   const todayLabel = fmt(new Date(), true);
@@ -106,11 +101,11 @@ export function FeedCoverageBar({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorder,
     borderRadius: 14,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
@@ -131,7 +126,7 @@ const styles = StyleSheet.create({
   caption: {
     fontSize: 10,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -144,7 +139,7 @@ const styles = StyleSheet.create({
   rangeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     flexShrink: 1,
   },
   rangePill: {
@@ -166,6 +161,6 @@ const styles = StyleSheet.create({
   noun: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 });

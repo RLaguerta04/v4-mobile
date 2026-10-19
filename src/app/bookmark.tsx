@@ -17,12 +17,15 @@ import { CollapsibleHeader } from '@/components/collapsible-header';
 import { ArticleActivityDetailModal } from '@/components/mediawatch/article-activity-detail';
 import { NewActivityModal } from '@/components/new-activity-modal';
 import { PageHeading } from '@/components/page-heading';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleTracker } from '@/contexts/adwatch-tracker-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useHideOnScroll } from '@/contexts/tab-bar-visibility-context';
-import { useMediaWatchTracker } from '@/contexts/mediawatch-tracker-context';
 import { useSocialTracker } from '@/contexts/social-tracker-context';
 import { useTrackerActivities } from '@/contexts/tracker-context';
+import { isArticleView } from '@/data/article-workspace';
 import { ActivityType } from '@/data/types';
 import { ResolvedActivity, resolveActivity } from '@/utils/metrics';
 
@@ -38,14 +41,6 @@ const FILTER_OPTIONS: TypeFilter[] = [
   'Event',
 ];
 
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-};
-
 // Each activity type gets an icon + accent, mirroring the web tracker's typed
 // activity rows (Press Release / Crisis / Product / Trending / Event).
 const ACTIVITY_META: Record<ActivityType, { icon: IoniconName; color: string }> = {
@@ -57,10 +52,14 @@ const ACTIVITY_META: Record<ActivityType, { icon: IoniconName; color: string }> 
 };
 
 export default function BookmarkScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const { activeView } = useAuth();
-  const isMediaWatch = activeView === 'MediaWatch';
+  // Both article workspaces (MediaWatch news, AdWatch ads) use the article
+  // tracker + article activity detail; SharedView uses the social ones.
+  const isArticle = isArticleView(activeView);
   const { userActivities, addActivity } = useTrackerActivities();
-  const { activities: mediaWatchActivities } = useMediaWatchTracker();
+  const { activities: articleActivities } = useArticleTracker();
   const { activities: socialActivities } = useSocialTracker();
   const [selected, setSelected] = useState<ResolvedActivity | null>(null);
   const [query, setQuery] = useState('');
@@ -76,8 +75,8 @@ export default function BookmarkScreen() {
   // workspace. Both are kept live via their tracker contexts (MediaWatch article
   // coverage / SharedView social activities) so Add to Tracker edits show up here.
   const activities = useMemo(
-    () => [...userActivities, ...(isMediaWatch ? mediaWatchActivities : socialActivities)].map(resolveActivity),
-    [userActivities, isMediaWatch, mediaWatchActivities, socialActivities],
+    () => [...userActivities, ...(isArticle ? articleActivities : socialActivities)].map(resolveActivity),
+    [userActivities, isArticle, articleActivities, socialActivities],
   );
 
   const filtered = useMemo(() => {
@@ -115,12 +114,12 @@ export default function BookmarkScreen() {
 
         <View style={styles.toolbar}>
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={16} color={palette.textSecondary} />
+            <Ionicons name="search" size={16} color={theme.textSecondary} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search activities…"
-              placeholderTextColor={palette.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               style={styles.searchInput}
               returnKeyType="search"
             />
@@ -130,7 +129,7 @@ export default function BookmarkScreen() {
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Clear search">
-                <Ionicons name="close-circle" size={16} color={palette.textSecondary} />
+                <Ionicons name="close-circle" size={16} color={theme.textSecondary} />
               </Pressable>
             )}
           </View>
@@ -143,11 +142,11 @@ export default function BookmarkScreen() {
               typeFilter !== 'All Types' && styles.filterChipOn,
               pressed && styles.pressed,
             ]}>
-            <Ionicons name="filter" size={14} color={palette.text} />
+            <Ionicons name="filter" size={14} color={theme.text} />
             <Text style={styles.filterChipText} numberOfLines={1}>
               {typeFilter}
             </Text>
-            <Ionicons name="chevron-down" size={14} color={palette.textSecondary} />
+            <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />
           </Pressable>
         </View>
         </CollapsibleHeader>
@@ -183,7 +182,7 @@ export default function BookmarkScreen() {
         />
       </SafeAreaView>
 
-      {isMediaWatch ? (
+      {isArticle ? (
         <ArticleActivityDetailModal activity={selected} onClose={() => setSelected(null)} />
       ) : (
         <ActivityDetailModal activity={selected} onClose={() => setSelected(null)} />
@@ -224,7 +223,7 @@ export default function BookmarkScreen() {
                   accessibilityState={{ selected: on }}
                   style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
                   <Text style={[styles.menuRowText, on && styles.menuRowTextOn]}>{opt}</Text>
-                  {on && <Ionicons name="checkmark" size={18} color={palette.text} />}
+                  {on && <Ionicons name="checkmark" size={18} color={theme.text} />}
                 </Pressable>
               );
             })}
@@ -236,6 +235,8 @@ export default function BookmarkScreen() {
 }
 
 function ActivityCard({ activity, onOpen }: { activity: ResolvedActivity; onOpen: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const meta = ACTIVITY_META[activity.type];
   return (
     <Pressable
@@ -255,7 +256,7 @@ function ActivityCard({ activity, onOpen }: { activity: ResolvedActivity; onOpen
             {activity.type} · {activity.date}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
+        <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
       </View>
 
       {activity.description ? (
@@ -265,7 +266,7 @@ function ActivityCard({ activity, onOpen }: { activity: ResolvedActivity; onOpen
       ) : null}
 
       <View style={styles.cardMetaRow}>
-        <Ionicons name="link-outline" size={13} color={palette.textSecondary} />
+        <Ionicons name="link-outline" size={13} color={theme.textSecondary} />
         <Text style={styles.metaText}>
           {activity.matchCount} {activity.matchCount === 1 ? 'match' : 'matches'}
         </Text>
@@ -276,10 +277,10 @@ function ActivityCard({ activity, onOpen }: { activity: ResolvedActivity; onOpen
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -299,11 +300,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   newBtn: {
     flexDirection: 'row',
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + 2,
     borderRadius: 999,
-    backgroundColor: palette.text,
+    backgroundColor: t.inverse,
   },
   newBtnText: {
     fontSize: 14,
@@ -334,9 +335,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: palette.text,
+    color: t.text,
     padding: 0,
   },
   filterChip: {
@@ -352,21 +353,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     maxWidth: 150,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
   },
   filterChipOn: {
-    borderColor: palette.text,
+    borderColor: t.text,
   },
   filterChipText: {
     flexShrink: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
 
   listContent: {
@@ -375,15 +376,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
     paddingHorizontal: Spacing.four,
   },
 
   card: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -408,16 +409,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
-    color: palette.text,
+    color: t.text,
   },
   cardType: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   cardDesc: {
     fontSize: 13,
     lineHeight: 18,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   cardMetaRow: {
     flexDirection: 'row',
@@ -427,26 +428,26 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   metaDot: {
     fontSize: 12,
-    color: palette.border,
+    color: t.borderCool,
   },
   metaValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#16A34A',
+    color: t.positive,
   },
 
   // Type filter bottom-sheet menu
   menuContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: t.scrim,
   },
   menuSheet: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: Spacing.four,
@@ -458,13 +459,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: t.borderCool,
     marginBottom: Spacing.two,
   },
   menuTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: Spacing.one,
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
   },
   menuRowText: {
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
   },
   menuRowTextOn: {
     fontWeight: '700',

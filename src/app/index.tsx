@@ -23,6 +23,7 @@ import { AuthorAvatar } from '@/components/author-avatar';
 import { FeedCoverageBar } from '@/components/feed-coverage-bar';
 import { BackToTop, useScrollToTop } from '@/components/back-to-top';
 import { CategoryDropdown } from '@/components/category-dropdown';
+import { FadeEdgeRow } from '@/components/fade-edge-row';
 import { MediaWatchMentions } from '@/components/mediawatch/mentions-screen';
 import { MentionCard } from '@/components/mention-card';
 import {
@@ -35,24 +36,17 @@ import {
 } from '@/components/mentions-filters-sheet';
 import { TodaysBriefCard } from '@/components/todays-brief-card';
 import { ViewSwitcher } from '@/components/view-switcher';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing, Theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useCategoryFilter } from '@/contexts/category-filter-context';
+import { isArticleView } from '@/data/article-workspace';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { socialMentions } from '@/data/sample-data';
 import { bucketsForCategory } from '@/data/taxonomy';
 import { SocialMention } from '@/data/types';
-
-// Local warm theme, scoped to this screen only — the rest of the app keeps
-// the system light/dark theme from constants/theme.ts.
-const palette = {
-  background: '#F5F4F0',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  chipActiveBg: '#1A1A1A',
-  topicBg: '#F0E9DC',
-};
 
 // One avatar per author who appears in the feed, in first-seen order — every
 // avatar in this row corresponds to a card actually visible below it.
@@ -67,46 +61,12 @@ function uniqueAuthors(mentions: SocialMention[]) {
   return result;
 }
 
-// Horizontal scroll row that fades its trailing edge when there's more
-// content off-screen, so users know the chips/topics are swipeable.
-function FadeEdgeRow({
-  scrollRef,
-  children,
-}: {
-  scrollRef?: React.RefObject<ScrollView | null>;
-  children: React.ReactNode;
-}) {
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
-  const showFade = contentWidth > containerWidth + 1;
-
-  return (
-    <View onLayout={(e: LayoutChangeEvent) => setContainerWidth(e.nativeEvent.layout.width)}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        onContentSizeChange={(w) => setContentWidth(w)}>
-        {children}
-      </ScrollView>
-      {showFade && (
-        <LinearGradient
-          colors={['#F5F4F000', palette.background]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.fadeEdge, { pointerEvents: 'none' }]}
-        />
-      )}
-    </View>
-  );
-}
-
-// Route dispatcher: MediaWatch renders the news-article Mentions feed; every
-// other view keeps the SharedView social feed below, byte-for-byte unchanged.
+// Route dispatcher: the article workspaces (MediaWatch news, AdWatch ads) render
+// the shared article Mentions feed; every other view (SharedView) keeps the
+// social feed below, byte-for-byte unchanged.
 export default function HomeRoute() {
   const { activeView } = useAuth();
-  return activeView === 'MediaWatch' ? <MediaWatchMentions /> : <SharedViewHome />;
+  return isArticleView(activeView) ? <MediaWatchMentions /> : <SharedViewHome />;
 }
 
 function SharedViewHome() {
@@ -128,7 +88,10 @@ function SharedViewHome() {
   const listRef = useRef<FlatList>(null);
   const navigation = useNavigation();
   const router = useRouter();
-  const { accentColor, activeView, selectView } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { activeView, selectView } = useAuth();
+  const accentColor = useAccentColor();
   const { hideProgress } = useTabBarVisibility();
   const insets = useSafeAreaInsets();
   const { visible: showTop, onScroll: onScrollTop } = useScrollToTop();
@@ -268,7 +231,7 @@ function SharedViewHome() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="dark" />
+      <StatusBar style={theme.statusBarStyle} />
       {/* Always-visible backdrop behind the real status bar — the floating
           header used to be the only thing covering this strip, so hiding it
           on scroll left the status bar icons over whatever content had
@@ -288,59 +251,77 @@ function SharedViewHome() {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.textSecondary} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.textSecondary} />
           }
           ListHeaderComponent={
             <View style={styles.listHeader}>
               <View onLayout={(e: LayoutChangeEvent) => setHeaderBeforeH(e.nativeEvent.layout.height)}>
-              <FadeEdgeRow scrollRef={authorScrollRef}>
+              <View style={styles.rowWrap}>
+                <FadeEdgeRow
+                  scrollRef={authorScrollRef}
+                  contentContainerStyle={selectedAuthor ? styles.rowInset : undefined}>
+                  {authors.map(({ handle, platform }) => {
+                    const active = selectedAuthor === handle;
+                    return (
+                      <Pressable
+                        key={handle}
+                        onLayout={(e) => {
+                          authorOffsets.current[handle] = e.nativeEvent.layout.x;
+                        }}
+                        onPress={() => toggleAuthor(handle)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={styles.authorItem}>
+                        <View style={[styles.avatarRing, active && styles.avatarRingActive]}>
+                          <AuthorAvatar handle={handle} platform={platform} size={44} />
+                        </View>
+                        <Text
+                          style={[styles.authorLabel, active && styles.authorLabelActive]}
+                          numberOfLines={1}>
+                          {handle}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </FadeEdgeRow>
+                {/* Pinned "Clear" — outside the scroll so it stays on the left;
+                    avatars scroll under it and fade out behind the gradient. */}
                 {selectedAuthor && (
-                  <Pressable
-                    onPress={() => setSelectedAuthor(null)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear author filter"
-                    style={styles.authorItem}>
-                    <View style={styles.clearAvatar}>
-                      <Ionicons name="close" size={18} color={palette.textSecondary} />
+                  <View style={[styles.clearPinned, { pointerEvents: 'box-none' }]}>
+                    <View style={styles.clearBlock}>
+                      <Pressable
+                        onPress={() => setSelectedAuthor(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear author filter"
+                        style={styles.authorItem}>
+                        <View style={styles.clearAvatar}>
+                          <Ionicons name="close" size={18} color={theme.textSecondary} />
+                        </View>
+                        <Text style={styles.authorLabel} numberOfLines={1}>
+                          Clear
+                        </Text>
+                      </Pressable>
                     </View>
-                    <Text style={styles.authorLabel} numberOfLines={1}>
-                      Clear
-                    </Text>
-                  </Pressable>
+                    <LinearGradient
+                      colors={[theme.background, `${theme.background}00`]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.clearFade, { pointerEvents: 'none' }]}
+                    />
+                  </View>
                 )}
-                {authors.map(({ handle, platform }) => {
-                  const active = selectedAuthor === handle;
-                  return (
-                    <Pressable
-                      key={handle}
-                      onLayout={(e) => {
-                        authorOffsets.current[handle] = e.nativeEvent.layout.x;
-                      }}
-                      onPress={() => toggleAuthor(handle)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      style={styles.authorItem}>
-                      <View style={[styles.avatarRing, active && styles.avatarRingActive]}>
-                        <AuthorAvatar handle={handle} platform={platform} size={44} />
-                      </View>
-                      <Text
-                        style={[styles.authorLabel, active && styles.authorLabelActive]}
-                        numberOfLines={1}>
-                        {handle}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </FadeEdgeRow>
-              <View style={styles.briefWrap}>
-                {/* Today's Brief is a fixed daily summary computed from the full
-                    dataset — it must NOT react to the category dropdown, filter
-                    sheet, sort order, or influencer selection (matching the web
-                    reference, where the brief is static). No `category` is passed
-                    so "View full brief" opens the same global brief (brief.tsx
-                    falls back to all mentions when category is absent). */}
-                <TodaysBriefCard mentions={socialMentions} />
               </View>
+              {/* Today's Brief is a fixed daily summary of the FULL dataset, so
+                  it's hidden while an influencer is selected — the feed is scoped
+                  to one author then, and the global brief would be misleading.
+                  When shown, its content stays global: it does NOT react to the
+                  category dropdown, filter sheet, or sort order. No `category` is
+                  passed so "View full brief" opens the same global brief. */}
+              {!selectedAuthor && (
+                <View style={styles.briefWrap}>
+                  <TodaysBriefCard mentions={socialMentions} />
+                </View>
+              )}
               </View>
               {/* Reserves the in-flow space the (absolutely-positioned, sticky)
                   coverage bar overlays, so it sits below the brief and the posts
@@ -383,7 +364,7 @@ function SharedViewHome() {
               accessibilityRole="button"
               accessibilityLabel={hasActiveFilters ? 'Open filters. Filters active' : 'Open filters'}
               hitSlop={8}>
-              <Ionicons name="options-outline" size={22} color={palette.text} />
+              <Ionicons name="options-outline" size={22} color={theme.text} />
               {hasActiveFilters && <View style={[styles.filterDot, { backgroundColor: accentColor }]} />}
             </Pressable>
             <Pressable
@@ -391,7 +372,7 @@ function SharedViewHome() {
               accessibilityRole="button"
               accessibilityLabel="Open profile"
               hitSlop={8}>
-              <Ionicons name="person-circle-outline" size={26} color={palette.text} />
+              <Ionicons name="person-circle-outline" size={26} color={theme.text} />
             </Pressable>
           </View>
         </Animated.View>
@@ -424,10 +405,10 @@ function SharedViewHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -464,14 +445,14 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: palette.background,
+    borderColor: t.background,
   },
   topBarFloating: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     zIndex: 3,
   },
   // Sticky coverage strip — translateY is driven in JS (recomputeCoverage).
@@ -480,7 +461,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
@@ -491,14 +472,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     zIndex: 1,
   },
-  chipRow: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.three,
-    paddingBottom: Spacing.two,
-  },
+  rowWrap: { position: 'relative' },
+  // Reserve the pinned Clear's footprint (16 pad + 64 item + 16 gap) so the
+  // first avatar starts to its right when an author is selected.
+  rowInset: { paddingLeft: 96 },
+  clearPinned: { position: 'absolute', left: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'stretch', zIndex: 3 },
+  clearBlock: { backgroundColor: t.background, paddingLeft: Spacing.three },
+  clearFade: { width: Spacing.three },
   authorItem: {
     width: 64,
     flexShrink: 0,
@@ -512,7 +495,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   avatarRingActive: {
-    borderColor: palette.chipActiveBg,
+    borderColor: t.text,
   },
   clearAvatar: {
     width: 44,
@@ -521,23 +504,16 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.topicBg,
+    backgroundColor: t.topicBg,
   },
   authorLabel: {
     fontSize: 10.5,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
     maxWidth: 64,
   },
   authorLabelActive: {
-    color: palette.chipActiveBg,
-  },
-  fadeEdge: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 32,
+    color: t.text,
   },
   listHeader: {
     marginHorizontal: -Spacing.three,
@@ -556,7 +532,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
   },
 });

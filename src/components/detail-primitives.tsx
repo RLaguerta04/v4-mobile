@@ -8,14 +8,17 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { MediaMeterColors, Spacing } from '@/constants/theme';
+import { MediaMeterColors, Spacing, Theme } from '@/constants/theme';
+import { useTheme, useThemeMode } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { ArticleTone, Sentiment } from '@/data/types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type FeatherName = keyof typeof Feather.glyphMap;
 
-// Shared card palette — the warm Media Meter surface tokens used across every
-// mention/article card and detail sheet.
+// Shared card palette — the warm Media Meter surface tokens. Kept as a static
+// (light) object for screens not yet migrated to the theme system; migrated
+// components should call useCardPalette() so the values flip in dark mode.
 export const cardPalette = {
   card: '#FFFFFF',
   text: '#1A1A1A',
@@ -23,6 +26,13 @@ export const cardPalette = {
   border: '#E7DDCC',
   track: '#EDE6D8',
 };
+
+// The scheme-aware equivalent of `cardPalette` — same keys, resolved from the
+// active theme. Drop-in replacement inside a component: `const cp = useCardPalette()`.
+export function useCardPalette() {
+  const t = useTheme();
+  return { card: t.card, text: t.text, textSecondary: t.textSecondary, border: t.border, track: t.track };
+}
 
 // Real Media Meter v4 sentiment tokens (design-system.html), not guessed values.
 export const SENTIMENT_DOT: Record<Sentiment, string> = {
@@ -39,6 +49,7 @@ export function formatCount(n: number): string {
 
 // Bordered white card wrapping one detail section; optional uppercase label.
 export function DetailCard({ label, children }: { label?: string; children: ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.detailCard}>
       {label && <Text style={styles.detailCardLabel}>{label}</Text>}
@@ -56,6 +67,7 @@ export function StatTiles({
   left: { label: string; value: string | number };
   right: { label: string; value: string | number };
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.tilesRow}>
       <View style={styles.tile}>
@@ -105,6 +117,8 @@ export function TriSelector<T extends string>({
   options: SelectorOption<T>[];
   initial?: T;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const [value, setValue] = useState<T | undefined>(initial);
   const active = options.find((o) => o.value === value);
   return (
@@ -119,7 +133,7 @@ export function TriSelector<T extends string>({
             accessibilityLabel={o.label}
             accessibilityState={{ selected: on }}
             style={[styles.selectorBtn, on && { borderColor: o.color, backgroundColor: `${o.color}1A` }]}>
-            <Feather name={o.icon} size={20} color={on ? o.color : cardPalette.textSecondary} />
+            <Feather name={o.icon} size={20} color={on ? o.color : theme.textSecondary} />
           </Pressable>
         );
       })}
@@ -132,11 +146,16 @@ export function TriSelector<T extends string>({
 
 // Keyword pills ("term - count").
 export function KeywordPills({ keywords }: { keywords: [string, number][] }) {
+  const styles = useThemedStyles(makeStyles);
+  const { isDark } = useThemeMode();
+  // Lilac #6B4DE8 is too dim as text on the dark canvas (~3.9:1) — use the
+  // lightened lilac for dark so the keyword label stays legible.
+  const kwColor = isDark ? '#A78BFA' : '#6B4DE8';
   return (
     <View style={styles.pillWrap}>
       {keywords.map(([term, count], i) => (
         <View key={i} style={styles.kwPill}>
-          <Text style={styles.kwPillText}>
+          <Text style={[styles.kwPillText, { color: kwColor }]}>
             {term} - {count}
           </Text>
         </View>
@@ -172,6 +191,7 @@ function entityType(name: string): keyof typeof ENTITY_META {
 
 // Entity pills with typed icon; first `limit` shown, rest behind "Show all N".
 export function EntityPills({ entities, limit = 5 }: { entities: string[]; limit?: number }) {
+  const styles = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? entities : entities.slice(0, limit);
   const remaining = entities.length - limit;
@@ -201,14 +221,14 @@ export function EntityPills({ entities, limit = 5 }: { entities: string[]; limit
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   pressed: {
     opacity: 0.5,
   },
   detailCard: {
-    backgroundColor: cardPalette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: cardPalette.border,
+    borderColor: t.cardBorder,
     borderRadius: Spacing.three,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -216,7 +236,7 @@ const styles = StyleSheet.create({
   detailCardLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: cardPalette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: Spacing.one,
@@ -232,20 +252,20 @@ const styles = StyleSheet.create({
   tileDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: cardPalette.border,
+    backgroundColor: t.border,
     marginHorizontal: Spacing.three,
   },
   tileLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   tileValue: {
     fontSize: 26,
     fontWeight: '700',
-    color: cardPalette.text,
+    color: t.text,
   },
   selectorRow: {
     flexDirection: 'row',
@@ -257,14 +277,14 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: Spacing.two,
     borderWidth: 1,
-    borderColor: cardPalette.border,
+    borderColor: t.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectorLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: t.textSecondary,
     marginLeft: Spacing.one,
   },
   pillWrap: {
@@ -291,9 +311,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: '#F5F4F0',
+    backgroundColor: t.topicBg,
     borderWidth: 1,
-    borderColor: '#E4E6EA',
+    borderColor: t.borderCool,
     borderRadius: 20,
     paddingLeft: 4,
     paddingRight: 11,
@@ -309,18 +329,18 @@ const styles = StyleSheet.create({
   entPillText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#41454D',
+    color: t.text,
   },
   entMore: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: cardPalette.border,
+    borderColor: t.border,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
   },
   entMoreText: {
     fontSize: 12,
     fontWeight: '600',
-    color: cardPalette.textSecondary,
+    color: t.textSecondary,
   },
 });

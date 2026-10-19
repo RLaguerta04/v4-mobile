@@ -3,18 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MmiIcon } from '@/components/mmi-icon';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
 import { APP_VIEWS, useAuth, VIEW_ACCENT_COLORS, VIEW_ICON } from '@/contexts/auth-context';
-
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#8A8580',
-  border: '#E7DDCC',
-};
+import { useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 export function ViewSelectionScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const { selectView } = useAuth();
 
   return (
@@ -45,7 +41,7 @@ export function ViewSelectionScreen() {
                   </View>
                   <Text style={styles.optionText}>{view}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
               </Pressable>
             ))}
           </View>
@@ -57,10 +53,10 @@ export function ViewSelectionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -78,18 +74,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 14,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textAlign: 'center',
   },
   optionList: {
     borderRadius: Spacing.three,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorder,
     overflow: 'hidden',
   },
   option: {
@@ -101,10 +97,10 @@ const styles = StyleSheet.create({
   },
   optionDivider: {
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: t.border,
   },
   optionPressed: {
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   optionLabel: {
     flexDirection: 'row',
@@ -122,11 +118,11 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   note: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textAlign: 'center',
   },
 });

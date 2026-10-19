@@ -8,31 +8,15 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
 import { ArticleSavedFilter, cloneArticleFilters, useArticleSavedFilters } from '@/contexts/article-saved-filters-context';
-import { useAuth } from '@/contexts/auth-context';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useArticleWorkspace, WorkspaceChannel } from '@/data/article-workspace';
 import { CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import type { Sentiment } from '@/data/types';
-import { ArticleFilters, ArticleSort, CHANNEL_TYPES, defaultArticleFilters } from '@/data/mediawatch-metrics';
-import type { MediaChannel } from '@/data/mediawatch-types';
+import { ArticleFilters, ArticleSort, defaultArticleFilters } from '@/data/mediawatch-metrics';
 
-const palette = {
-  sheetBg: '#FFFFFF',
-  pillBg: '#F0F0F0',
-  pillText: '#1A1A1A',
-  pillSelectedText: '#FFFFFF',
-  sectionLabel: '#6B7280',
-  border: '#E4E6EA',
-};
-
-const SORTS: { value: ArticleSort; label: string }[] = [
-  { value: 'newest', label: 'Newest Articles' },
-  { value: 'oldest', label: 'Oldest Articles' },
-  { value: 'value-high', label: 'Highest Value' },
-  { value: 'value-low', label: 'Lowest Value' },
-];
-
-const CHANNELS: (MediaChannel | 'All')[] = ['All', 'Online', 'TV', 'Print', 'Radio'];
 const SENTIMENTS: Sentiment[] = ['positive', 'neutral', 'negative'];
 const SV_TIERS: { label: string; min: number; max: number }[] = [
   { label: 'All', min: 0, max: 10 },
@@ -48,11 +32,12 @@ const QUICK_RANGES: { label: string; days: number }[] = [
   { label: '1Y', days: 365 },
 ];
 
-function channelOf(set: Set<string>): MediaChannel | 'All' {
+// The channel label whose media types exactly match the selected set (or 'All'
+// when nothing is selected / the selection doesn't line up to a single channel).
+function channelOf(set: Set<string>, channels: WorkspaceChannel[]): string {
   if (set.size === 0) return 'All';
-  for (const ch of ['Online', 'TV', 'Radio', 'Print'] as MediaChannel[]) {
-    const types = CHANNEL_TYPES[ch];
-    if (types.length === set.size && types.every((t) => set.has(t))) return ch;
+  for (const ch of channels) {
+    if (ch.types.length === set.size && ch.types.every((t) => set.has(t))) return ch.label;
   }
   return 'All';
 }
@@ -64,7 +49,8 @@ function startOfDay(d: Date) {
 }
 
 function Pill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  const { accentColor } = useAuth();
+  const styles = useThemedStyles(makeStyles);
+  const accentColor = useAccentColor();
   return (
     <Pressable
       onPress={onPress}
@@ -77,10 +63,12 @@ function Pill({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 function SectionLabel({ children }: { children: string }) {
+  const styles = useThemedStyles(makeStyles);
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
 function KeywordGroup({ label, words, excluded }: { label: string; words: string[]; excluded?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.keywordGroup}>
       <Text style={styles.keywordGroupLabel}>{label}</Text>
@@ -106,9 +94,21 @@ export function ArticleFiltersSheet({
   onApply: (filters: ArticleFilters) => void;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
+  const ws = useArticleWorkspace();
   const { saved, saveFilter, removeFilter } = useArticleSavedFilters();
+  // Sort labels follow the workspace noun ("Newest Articles" / "Newest Ads").
+  const SORTS: { value: ArticleSort; label: string }[] = [
+    { value: 'newest', label: `Newest ${ws.Nouns}` },
+    { value: 'oldest', label: `Oldest ${ws.Nouns}` },
+    { value: 'value-high', label: 'Highest Value' },
+    { value: 'value-low', label: 'Lowest Value' },
+  ];
+  // Media pills: All + the workspace's channels (AdWatch = Video/Print/Radio).
+  const channelLabels: string[] = ['All', ...ws.channels.map((c) => c.label)];
   const [pending, setPending] = useState<ArticleFilters>(initialFilters);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [expandedKeywords, setExpandedKeywords] = useState<Set<string>>(new Set());
@@ -123,12 +123,13 @@ export function ArticleFiltersSheet({
     }
   }, [visible, initialFilters]);
 
-  const activeChannel = channelOf(pending.mediaTypes);
+  const activeChannel = channelOf(pending.mediaTypes, ws.channels);
 
-  function selectChannel(ch: MediaChannel | 'All') {
+  function selectChannel(label: string) {
+    const channel = ws.channels.find((c) => c.label === label);
     setPending((p) => ({
       ...p,
-      mediaTypes: ch === 'All' ? new Set() : new Set(CHANNEL_TYPES[ch]),
+      mediaTypes: channel ? new Set(channel.types) : new Set(),
     }));
   }
 
@@ -181,7 +182,7 @@ export function ArticleFiltersSheet({
   // A sensible default name from the current config — e.g. "TV · Product · High (7–10)".
   function suggestName(f: ArticleFilters): string {
     const parts: string[] = [];
-    const channel = channelOf(f.mediaTypes);
+    const channel = channelOf(f.mediaTypes, ws.channels);
     if (channel !== 'All') parts.push(channel);
     if (f.topics.size > 0) parts.push([...f.topics][0]);
     if (f.sentiments.size > 0) {
@@ -212,7 +213,7 @@ export function ArticleFiltersSheet({
         <View style={styles.header}>
           <Text style={styles.title}>Filters</Text>
           <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close filters" style={styles.closeButton}>
-            <Ionicons name="close" size={18} color={palette.pillText} />
+            <Ionicons name="close" size={18} color={theme.text} />
           </Pressable>
         </View>
 
@@ -237,7 +238,7 @@ export function ArticleFiltersSheet({
                   accessibilityRole="button"
                   accessibilityLabel={`Delete filter ${sf.name}`}
                   style={styles.savedChipClose}>
-                  <Ionicons name="close" size={13} color={palette.sectionLabel} />
+                  <Ionicons name="close" size={13} color={theme.textSecondary} />
                 </Pressable>
               </View>
             ))}
@@ -246,7 +247,7 @@ export function ArticleFiltersSheet({
               accessibilityRole="button"
               accessibilityLabel="Save current filter"
               style={styles.saveChip}>
-              <Ionicons name="add" size={15} color={palette.pillText} />
+              <Ionicons name="add" size={15} color={theme.text} />
               <Text style={styles.saveChipText}>Save current</Text>
             </Pressable>
           </View>
@@ -256,7 +257,7 @@ export function ArticleFiltersSheet({
                 value={nameInput}
                 onChangeText={setNameInput}
                 placeholder="Name this filter"
-                placeholderTextColor={palette.sectionLabel}
+                placeholderTextColor={theme.textSecondary}
                 style={styles.saveInput}
                 autoFocus
                 returnKeyType="done"
@@ -274,7 +275,7 @@ export function ArticleFiltersSheet({
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
                 style={styles.saveCancel}>
-                <Ionicons name="close" size={16} color={palette.sectionLabel} />
+                <Ionicons name="close" size={16} color={theme.textSecondary} />
               </Pressable>
             </View>
           )}
@@ -288,7 +289,7 @@ export function ArticleFiltersSheet({
 
           <SectionLabel>Media</SectionLabel>
           <View style={styles.pillRow}>
-            {CHANNELS.map((ch) => (
+            {channelLabels.map((ch) => (
               <Pill key={ch} label={ch} active={activeChannel === ch} onPress={() => selectChannel(ch)} />
             ))}
           </View>
@@ -328,7 +329,7 @@ export function ArticleFiltersSheet({
                         </Text>
                       )}
                     </View>
-                    <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={palette.sectionLabel} />
+                    <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
                   </Pressable>
                   {expanded && (
                     <View style={styles.treeBucketList}>
@@ -347,7 +348,7 @@ export function ArticleFiltersSheet({
                                 <Ionicons
                                   name={keywordsShown ? 'chevron-up' : 'pricetags-outline'}
                                   size={16}
-                                  color={palette.sectionLabel}
+                                  color={theme.textSecondary}
                                 />
                               </Pressable>
                               <Pressable
@@ -361,7 +362,7 @@ export function ArticleFiltersSheet({
                                 <Ionicons
                                   name={active ? 'radio-button-on' : 'radio-button-off'}
                                   size={18}
-                                  color={active ? accentColor : palette.sectionLabel}
+                                  color={active ? accentColor : theme.textSecondary}
                                 />
                               </Pressable>
                             </View>
@@ -418,35 +419,35 @@ export function ArticleFiltersSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   sheet: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: palette.sheetBg,
+    backgroundColor: t.card,
     borderTopLeftRadius: Spacing.four,
     borderTopRightRadius: Spacing.four,
     overflow: 'hidden',
     paddingHorizontal: Spacing.four,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.three },
-  title: { fontSize: 24, fontWeight: '700', color: palette.pillText },
-  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: palette.pillBg, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 24, fontWeight: '700', color: t.text },
+  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: t.topicBg, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
   bodyContent: { gap: Spacing.one, paddingBottom: Spacing.three },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: palette.sectionLabel, marginTop: Spacing.three, marginBottom: Spacing.one },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: t.textSecondary, marginTop: Spacing.three, marginBottom: Spacing.one },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
-  pill: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: 999, backgroundColor: palette.pillBg },
-  pillText: { fontSize: 14, fontWeight: '600', color: palette.pillText },
-  pillTextActive: { color: palette.pillSelectedText },
-  treeList: { borderTopWidth: 1, borderTopColor: palette.border },
-  treeCategoryDivider: { borderBottomWidth: 1, borderBottomColor: palette.border },
+  pill: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: 999, backgroundColor: t.topicBg },
+  pillText: { fontSize: 14, fontWeight: '600', color: t.text },
+  pillTextActive: { color: '#FFFFFF' },
+  treeList: { borderTopWidth: 1, borderTopColor: t.border },
+  treeCategoryDivider: { borderBottomWidth: 1, borderBottomColor: t.border },
   treeCategoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.three },
   treeCategoryLabelColumn: { flex: 1, gap: 2 },
-  treeCategoryText: { fontSize: 14, fontWeight: '700', color: palette.pillText },
-  treeCategorySubtitle: { fontSize: 13, color: palette.sectionLabel },
+  treeCategoryText: { fontSize: 14, fontWeight: '700', color: t.text },
+  treeCategorySubtitle: { fontSize: 13, color: t.textSecondary },
   treeBucketList: { paddingBottom: Spacing.two },
   treeBucketRow: {
     flexDirection: 'row',
@@ -456,26 +457,28 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   treeBucketSelect: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  treeBucketText: { fontSize: 14, color: palette.pillText },
+  treeBucketText: { fontSize: 14, color: t.text },
   keywordPanel: { marginLeft: Spacing.three + 16 + Spacing.two, paddingBottom: Spacing.two, gap: Spacing.two },
   keywordGroup: { gap: 4 },
-  keywordGroupLabel: { fontSize: 11, fontWeight: '700', color: palette.sectionLabel, textTransform: 'uppercase' },
+  keywordGroupLabel: { fontSize: 11, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase' },
   keywordChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  keywordChip: { paddingHorizontal: Spacing.two, paddingVertical: 4, borderRadius: 999, backgroundColor: palette.pillBg },
+  keywordChip: { paddingHorizontal: Spacing.two, paddingVertical: 4, borderRadius: 999, backgroundColor: t.topicBg },
+  // Excluded keyword chip — self-contained light-red tint + dark-red strikethrough
+  // text; reads on either canvas, so kept literal.
   keywordChipExcluded: { backgroundColor: '#FBE9E7' },
-  keywordChipText: { fontSize: 12, fontWeight: '600', color: palette.pillText },
+  keywordChipText: { fontSize: 12, fontWeight: '600', color: t.text },
   keywordChipTextExcluded: { color: '#B0463C', textDecorationLine: 'line-through' },
-  keywordEmptyText: { fontSize: 12, fontStyle: 'italic', color: palette.sectionLabel },
-  footer: { flexDirection: 'row', gap: Spacing.two, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: palette.border },
-  resetButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999, backgroundColor: palette.pillBg },
-  resetButtonText: { fontSize: 15, fontWeight: '700', color: palette.pillText },
+  keywordEmptyText: { fontSize: 12, fontStyle: 'italic', color: t.textSecondary },
+  footer: { flexDirection: 'row', gap: Spacing.two, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: t.border },
+  resetButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999, backgroundColor: t.topicBg },
+  resetButtonText: { fontSize: 15, fontWeight: '700', color: t.text },
   applyButton: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999 },
   applyButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   savedChip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
     paddingLeft: Spacing.two + 2,
     paddingRight: 2,
   },
@@ -486,7 +489,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one + 2,
     maxWidth: 180,
   },
-  savedChipText: { fontSize: 13, fontWeight: '600', color: palette.pillText },
+  savedChipText: { fontSize: 13, fontWeight: '600', color: t.text },
   savedChipClose: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   saveChip: {
     flexDirection: 'row',
@@ -494,22 +497,22 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
     borderStyle: 'dashed',
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.one + 2,
   },
-  saveChipText: { fontSize: 13, fontWeight: '600', color: palette.pillText },
+  saveChipText: { fontSize: 13, fontWeight: '600', color: t.text },
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
   saveInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.border,
     borderRadius: 10,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
     fontSize: 14,
-    color: palette.pillText,
+    color: t.text,
   },
   saveConfirm: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 999 },
   saveConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },

@@ -9,9 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ShareBar } from '@/components/dashboard/bars';
 import { DbCard, Legend } from '@/components/dashboard/chart-card';
-import { chartTokens, SENTIMENT_COLOR } from '@/components/dashboard/palette';
-import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { SENTIMENT_COLOR } from '@/components/dashboard/palette';
+import { Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import {
   buildCategoryComparison,
   COMPARE_CATEGORIES,
@@ -20,8 +21,10 @@ import { compactAve } from '@/data/mediawatch-metrics';
 import { newsArticles } from '@/data/mediawatch-articles';
 
 export function CompareSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState<string[] | null>(null);
 
@@ -54,11 +57,11 @@ export function CompareSheet({ visible, onClose }: { visible: boolean; onClose: 
           <View style={styles.headerActions}>
             {confirmed ? (
               <Pressable onPress={() => setConfirmed(null)} accessibilityRole="button" hitSlop={8} style={styles.headerBtn}>
-                <Ionicons name="chevron-back" size={22} color={chartTokens.text} />
+                <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
             ) : null}
             <Pressable onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} style={styles.headerBtn}>
-              <Ionicons name="close" size={22} color={chartTokens.text} />
+              <Ionicons name="close" size={22} color={theme.text} />
             </Pressable>
           </View>
         </View>
@@ -139,6 +142,7 @@ export function CompareSheet({ visible, onClose }: { visible: boolean; onClose: 
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -147,8 +151,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F5F4F0' },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,13 +160,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderBottomWidth: 1,
-    borderBottomColor: chartTokens.border,
+    borderBottomColor: t.borderCool,
   },
-  title: { flex: 1, fontSize: 18, fontWeight: '800', color: chartTokens.text },
+  title: { flex: 1, fontSize: 18, fontWeight: '800', color: t.text },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   headerBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   body: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
-  hint: { fontSize: 13, color: chartTokens.textSecondary },
+  hint: { fontSize: 13, color: t.textSecondary },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
   pressed: { opacity: 0.6 },
   checkbox: {
@@ -170,31 +174,31 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: chartTokens.border,
+    borderColor: t.borderCool,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickLabel: { fontSize: 15, fontWeight: '600', color: chartTokens.text },
+  pickLabel: { fontSize: 15, fontWeight: '600', color: t.text },
   footer: {
     flexDirection: 'row',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     borderTopWidth: 1,
-    borderTopColor: chartTokens.border,
+    borderTopColor: t.borderCool,
   },
-  resetBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999, backgroundColor: '#F0EEEA' },
-  resetText: { fontSize: 15, fontWeight: '700', color: chartTokens.text },
+  resetBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999, backgroundColor: t.topicBg },
+  resetText: { fontSize: 15, fontWeight: '700', color: t.text },
   compareBtn: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.three, borderRadius: 999 },
   compareBtnDisabled: { opacity: 0.4 },
   compareText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   statRow: { flexDirection: 'row', gap: Spacing.four },
   stat: { gap: 2 },
-  statValue: { fontSize: 18, fontWeight: '800', color: chartTokens.text },
-  statLabel: { fontSize: 10, color: chartTokens.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  metaLine: { fontSize: 12, color: chartTokens.textSecondary, marginTop: 2 },
-  metaStrong: { fontWeight: '700', color: chartTokens.text },
+  statValue: { fontSize: 18, fontWeight: '800', color: t.text },
+  statLabel: { fontSize: 10, color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  metaLine: { fontSize: 12, color: t.textSecondary, marginTop: 2 },
+  metaStrong: { fontWeight: '700', color: t.text },
   sentBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginTop: Spacing.two, gap: 1 },
-  sentCaption: { fontSize: 11, color: chartTokens.textSecondary, marginTop: 4 },
+  sentCaption: { fontSize: 11, color: t.textSecondary, marginTop: 4 },
 });

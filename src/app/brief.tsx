@@ -18,22 +18,16 @@ import {
   rankByEngagement,
   totalEngagement,
 } from '@/components/todays-brief-card';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Theme } from '@/constants/theme';
+import { useTheme, useThemeMode } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useAuth } from '@/contexts/auth-context';
 import { useBookmarks } from '@/contexts/bookmarks-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility-context';
+import { isArticleView } from '@/data/article-workspace';
 import { socialMentions, trendingStories } from '@/data/sample-data';
 import { bucketsForCategory, CATEGORY_TAXONOMY } from '@/data/taxonomy';
 import { Sentiment, SocialMention } from '@/data/types';
-
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E4E6EA',
-  tabActiveBg: '#1A1A1A',
-};
 
 const TABS = [
   { key: 'spotlight', label: 'Spotlight' },
@@ -87,14 +81,20 @@ function dominantSentiment(members: SocialMention[]): Sentiment {
   return best;
 }
 
-// Route dispatcher: MediaWatch shows the article brief; others keep the
-// SharedView social brief below.
+// Route dispatcher: the article workspaces (MediaWatch news, AdWatch ads) show
+// the shared article brief; others keep the SharedView social brief below.
 export default function BriefRoute() {
   const { activeView } = useAuth();
-  return activeView === 'MediaWatch' ? <MediaWatchBrief /> : <SharedViewBrief />;
+  return isArticleView(activeView) ? <MediaWatchBrief /> : <SharedViewBrief />;
 }
 
 function SharedViewBrief() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { isDark } = useThemeMode();
+  // The lilac "Trending Spotlight"/velocity labels are too dark to read on the
+  // charcoal canvas — swap to the lightened variant in dark.
+  const lilac = isDark ? '#A78BFA' : '#6B4DE8';
   const router = useRouter();
   const { category } = useLocalSearchParams<{ category?: string }>();
   const [activeTab, setActiveTab] = useState<TabKey>('spotlight');
@@ -279,7 +279,7 @@ function SharedViewBrief() {
                   accessibilityLabel="Regenerate brief"
                   hitSlop={8}
                   style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
-                  <Ionicons name="refresh" size={20} color={palette.text} />
+                  <Ionicons name="refresh" size={20} color={theme.text} />
                 </Pressable>
               }
             />
@@ -321,8 +321,8 @@ function SharedViewBrief() {
                 {spotlight && (
                   <View style={styles.shCard}>
                     <View style={styles.shBadge}>
-                      <Ionicons name="flame" size={11} color="#6B4DE8" />
-                      <Text style={styles.shBadgeText}>Trending Spotlight</Text>
+                      <Ionicons name="flame" size={11} color={lilac} />
+                      <Text style={[styles.shBadgeText, { color: lilac }]}>Trending Spotlight</Text>
                     </View>
                     <Text style={styles.shHeadline}>
                       {stats.trendingEntity ?? spotlight.handle} leads today&apos;s conversation
@@ -343,8 +343,8 @@ function SharedViewBrief() {
                         </Text>
                       </View>
                       <View style={[styles.shChip, styles.shChipVelocity]}>
-                        <Ionicons name="flame" size={11} color="#6B4DE8" />
-                        <Text style={[styles.shChipText, { color: '#6B4DE8' }]}>
+                        <Ionicons name="flame" size={11} color={lilac} />
+                        <Text style={[styles.shChipText, { color: lilac }]}>
                           {stats.trending.length} posts / today
                         </Text>
                       </View>
@@ -359,14 +359,14 @@ function SharedViewBrief() {
                         onPress={sendNewsletter}
                         accessibilityRole="button"
                         style={({ pressed }) => [styles.shAction, pressed && styles.pressed]}>
-                        <Ionicons name="mail-outline" size={15} color={palette.text} />
+                        <Ionicons name="mail-outline" size={15} color={theme.text} />
                         <Text style={styles.shActionText}>Send as newsletter</Text>
                       </Pressable>
                       <Pressable
                         onPress={generateReport}
                         accessibilityRole="button"
                         style={({ pressed }) => [styles.shAction, pressed && styles.pressed]}>
-                        <Ionicons name="document-text-outline" size={15} color={palette.text} />
+                        <Ionicons name="document-text-outline" size={15} color={theme.text} />
                         <Text style={styles.shActionText}>Generate AI report</Text>
                       </Pressable>
                       <Pressable
@@ -381,7 +381,7 @@ function SharedViewBrief() {
                         <Ionicons
                           name={isSaved(spotlight.url) ? 'checkmark' : 'megaphone-outline'}
                           size={15}
-                          color={isSaved(spotlight.url) ? '#FFFFFF' : palette.text}
+                          color={isSaved(spotlight.url) ? '#FFFFFF' : theme.text}
                         />
                         <Text
                           style={[
@@ -395,7 +395,7 @@ function SharedViewBrief() {
                         onPress={exportBrief}
                         accessibilityRole="button"
                         style={({ pressed }) => [styles.shAction, pressed && styles.pressed]}>
-                        <Ionicons name="share-outline" size={15} color={palette.text} />
+                        <Ionicons name="share-outline" size={15} color={theme.text} />
                         <Text style={styles.shActionText}>Export</Text>
                       </Pressable>
                     </View>
@@ -472,7 +472,7 @@ function SharedViewBrief() {
                         <Ionicons
                           name={open ? 'chevron-up' : 'chevron-down'}
                           size={18}
-                          color={palette.textSecondary}
+                          color={theme.textSecondary}
                         />
                       </Pressable>
 
@@ -491,7 +491,7 @@ function SharedViewBrief() {
                               <Ionicons
                                 name={storyTracked ? 'checkmark' : 'megaphone-outline'}
                                 size={15}
-                                color={storyTracked ? '#FFFFFF' : palette.text}
+                                color={storyTracked ? '#FFFFFF' : theme.text}
                               />
                               <Text
                                 style={[styles.shActionText, storyTracked && styles.shActionTextActive]}>
@@ -503,14 +503,14 @@ function SharedViewBrief() {
                               accessibilityRole="button"
                               accessibilityLabel="Export story"
                               style={({ pressed }) => [styles.shAction, pressed && styles.pressed]}>
-                              <Ionicons name="download-outline" size={15} color={palette.text} />
+                              <Ionicons name="download-outline" size={15} color={theme.text} />
                               <Text style={styles.shActionText}>Export</Text>
                             </Pressable>
                           </View>
 
                           <View style={styles.trendBody}>
                             <View style={styles.trendWhy}>
-                              <Ionicons name="flash-outline" size={13} color="#6B4DE8" />
+                              <Ionicons name="flash-outline" size={13} color={lilac} />
                               <Text style={styles.trendWhyText}>
                                 <Text style={styles.trendWhyLabel}>Why picked: </Text>
                                 {story.why}
@@ -548,10 +548,10 @@ function SharedViewBrief() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
   },
   safeArea: {
     flex: 1,
@@ -565,9 +565,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   headerButton: {
     width: 36,
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     letterSpacing: -0.2,
   },
   // Static tab bar below the header: solid background + hairline to divide it
@@ -589,9 +589,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   tab: {
     paddingHorizontal: Spacing.three,
@@ -599,12 +599,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   tabActive: {
-    backgroundColor: palette.tabActiveBg,
+    backgroundColor: t.inverse,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   tabTextActive: {
     color: '#FFFFFF',
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: Spacing.two,
@@ -630,9 +630,9 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   trendStory: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   trendRank: {
     fontSize: 14,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     marginTop: 1,
   },
   trendMain: {
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
-    color: palette.text,
+    color: t.text,
   },
   trendMeta: {
     flexDirection: 'row',
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   trendTier: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   trendSentChip: {
     borderRadius: 999,
@@ -680,16 +680,16 @@ const styles = StyleSheet.create({
   },
   trendDot: {
     fontSize: 12,
-    color: palette.border,
+    color: t.borderCool,
   },
   trendMetaText: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   trendValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#16A34A',
+    color: t.positive,
   },
   trendBody: {
     paddingHorizontal: Spacing.three,
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
     gap: Spacing.four,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: t.borderCool,
   },
   trendActions: {
     flexDirection: 'row',
@@ -717,16 +717,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   trendWhyLabel: {
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   shCard: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -753,16 +753,16 @@ const styles = StyleSheet.create({
   shHeadline: {
     fontSize: 17,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
     letterSpacing: -0.2,
     lineHeight: 23,
   },
   shMeta: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
   shMetaStrong: {
-    color: '#16A34A',
+    color: t.positive,
     fontWeight: '700',
   },
   shChipRow: {
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: t.topicBg,
     borderRadius: 999,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 4,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   shChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: t.text,
   },
   shActions: {
     flexDirection: 'row',
@@ -801,33 +801,33 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '46%',
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 12,
     paddingVertical: Spacing.two + 2,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
   },
   shActionActive: {
-    backgroundColor: palette.text,
-    borderColor: palette.text,
+    backgroundColor: t.inverse,
+    borderColor: t.inverse,
   },
   shActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   shActionTextActive: {
     color: '#FFFFFF',
   },
   aiCard: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 16,
     padding: Spacing.three,
   },
   aiHint: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     lineHeight: 19,
     marginBottom: Spacing.three,
   },
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: palette.text,
+    backgroundColor: t.inverse,
     borderRadius: 999,
     paddingVertical: Spacing.two + 2,
   },
@@ -848,11 +848,11 @@ const styles = StyleSheet.create({
   aiText: {
     fontSize: 14,
     lineHeight: 21,
-    color: palette.text,
+    color: t.text,
   },
   emptyText: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
   },
   pressed: {

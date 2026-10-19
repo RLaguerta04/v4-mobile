@@ -14,24 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PageHeading } from '@/components/page-heading';
 import { useDismissGesture } from '@/components/pull-to-dismiss';
 import { SheetHeader } from '@/components/sheet-header';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
+import { BottomTabInset, MaxContentWidth, Spacing, Theme } from '@/constants/theme';
+import { useAccentColor, useTheme } from '@/contexts/theme-context';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useCategoryFilter } from '@/contexts/category-filter-context';
 import { Bucket, Category, CATEGORY_TAXONOMY } from '@/data/taxonomy';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-
-const palette = {
-  background: '#F5F4F0',
-  card: '#FFFFFF',
-  text: '#181D26',
-  textSecondary: '#6B7280',
-  faint: '#9CA3AF',
-  border: '#E4E6EA',
-  pillBg: '#F0F0F0',
-  excludedBg: '#FBE9E7',
-  excludedText: '#B0463C',
-};
 
 // One shared icon for every category — the taxonomy carries no per-category
 // icon, so differentiation comes from color, not the glyph. A price-tag reads
@@ -49,8 +38,10 @@ function colorFor(name: string) {
 }
 
 export default function CategoriesScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const router = useRouter();
-  const { accentColor } = useAuth();
+  const accentColor = useAccentColor();
   const { setSelectedCategory } = useCategoryFilter();
   const [query, setQuery] = useState('');
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -123,12 +114,12 @@ export default function CategoriesScreen() {
           </View>
 
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={palette.faint} />
+            <Ionicons name="search" size={18} color={theme.textTertiary} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search buckets & keywords"
-              placeholderTextColor={palette.faint}
+              placeholderTextColor={theme.textTertiary}
               style={styles.searchInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -136,7 +127,7 @@ export default function CategoriesScreen() {
             />
             {query.length > 0 ? (
               <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
-                <Ionicons name="close-circle" size={18} color={palette.faint} />
+                <Ionicons name="close-circle" size={18} color={theme.textTertiary} />
               </Pressable>
             ) : null}
           </View>
@@ -166,7 +157,7 @@ export default function CategoriesScreen() {
                           {category.name}
                         </Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color={palette.faint} />
+                      <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
                     </Pressable>
                   );
                 })}
@@ -193,6 +184,7 @@ export default function CategoriesScreen() {
 }
 
 function CategoryTile({ category, onPress }: { category: Category; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const color = colorFor(category.name);
   const count = category.buckets.length;
   return (
@@ -225,6 +217,8 @@ function CategoryDetail({
   onBack: () => void;
   onShowInHome: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const color = colorFor(category.name);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Pull the header bar down (or tap ✕) to return to the category grid — the
@@ -292,7 +286,7 @@ function CategoryDetail({
                   <Ionicons
                     name={isOpen ? 'chevron-up' : 'chevron-down'}
                     size={16}
-                    color={palette.textSecondary}
+                    color={theme.textSecondary}
                   />
                 </Pressable>
                 {isOpen ? (
@@ -322,6 +316,7 @@ function CategoryDetail({
 }
 
 function KeywordGroup({ label, words, excluded }: { label: string; words: string[]; excluded?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.keywordGroup}>
       <Text style={styles.keywordGroupLabel}>{label}</Text>
@@ -336,10 +331,10 @@ function KeywordGroup({ label, words, excluded }: { label: string; words: string
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: t.background,
     alignItems: 'center',
   },
   safeArea: {
@@ -361,11 +356,11 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '800',
-    color: palette.text,
+    color: t.text,
   },
   subtitle: {
     fontSize: 13,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   // Search
@@ -373,9 +368,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.borderCool,
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Platform.OS === 'ios' ? Spacing.two + 2 : Spacing.one,
@@ -383,15 +378,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: palette.text,
+    color: t.text,
     paddingVertical: Spacing.one,
   },
 
   // Results
   resultList: {
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -402,7 +397,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
+    borderBottomColor: t.borderCool,
   },
   resultDot: {
     width: 10,
@@ -415,11 +410,11 @@ const styles = StyleSheet.create({
   resultBucket: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   resultCategory: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
     marginTop: 1,
   },
 
@@ -433,9 +428,9 @@ const styles = StyleSheet.create({
     width: '47%',
     flexGrow: 1,
     minHeight: 116,
-    backgroundColor: palette.card,
+    backgroundColor: t.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: t.cardBorderCool,
     borderRadius: 14,
     padding: Spacing.three,
     justifyContent: 'space-between',
@@ -451,11 +446,11 @@ const styles = StyleSheet.create({
   tileName: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: t.text,
   },
   tileCount: {
     fontSize: 12,
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   // Detail
@@ -478,7 +473,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '800',
-    color: palette.text,
+    color: t.text,
   },
   detailBody: {
     paddingHorizontal: Spacing.three,
@@ -520,7 +515,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -528,7 +523,7 @@ const styles = StyleSheet.create({
   // Buckets
   bucketBlock: {
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: t.borderCool,
   },
   bucketRow: {
     flexDirection: 'row',
@@ -539,7 +534,7 @@ const styles = StyleSheet.create({
   bucketText: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   keywordPanel: {
     gap: Spacing.two,
@@ -551,7 +546,7 @@ const styles = StyleSheet.create({
   keywordGroupLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     textTransform: 'uppercase',
   },
   keywordChipRow: {
@@ -563,29 +558,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: palette.pillBg,
+    backgroundColor: t.topicBg,
   },
   keywordChipExcluded: {
-    backgroundColor: palette.excludedBg,
+    backgroundColor: '#FBE9E7',
   },
   keywordChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: palette.text,
+    color: t.text,
   },
   keywordChipTextExcluded: {
-    color: palette.excludedText,
+    color: '#B0463C',
     textDecorationLine: 'line-through',
   },
   emptyKeywords: {
     fontSize: 12,
     fontStyle: 'italic',
-    color: palette.textSecondary,
+    color: t.textSecondary,
   },
 
   empty: {
     textAlign: 'center',
-    color: palette.textSecondary,
+    color: t.textSecondary,
     paddingTop: Spacing.six,
     paddingHorizontal: Spacing.four,
     lineHeight: 20,
